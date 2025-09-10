@@ -3,10 +3,10 @@ Date: 9/9/2025
 Time: 7:30-8:00PM
 
 ### Attendees
-Kevin Ekart
-Huynh Le
-Ethan Gray
-Laken Hollen
+* Kevin Ekart
+* Huynh Le
+* Ethan Gray
+* Laken Hollen
 
 ### Agenda
 1. Github Access
