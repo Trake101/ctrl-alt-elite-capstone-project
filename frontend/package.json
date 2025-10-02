@@ -1,0 +1,21 @@
+{
+  "name": "ctrl-alt-elite-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.6",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.6.1",
+    "@types/react": "19.1.16",
+    "typescript": "5.9.3"
+  }
+}
