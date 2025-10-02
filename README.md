@@ -72,11 +72,21 @@ This project uses Docker Compose to orchestrate the frontend, backend, and datab
 
 ### Environment Configuration
 
-The application uses environment variables for configuration. Create the following files if needed:
+The application uses environment variables for configuration. Example files are provided for easy setup:
 
-- `.env` (root level)
-- `backend/.env`
-- `frontend/.env.local`
+1. **Copy the example files:**
+   ```bash
+   cp .env.example .env
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env.local
+   ```
+
+2. **Update the values** in each file as needed for your environment.
+
+The example files include:
+- **Root `.env.example`**: Common environment variables for the entire application
+- **Backend `.env.example`**: Database connection, API configuration, and security settings
+- **Frontend `.env.example`**: Next.js configuration and API endpoints
 
 ---
 
