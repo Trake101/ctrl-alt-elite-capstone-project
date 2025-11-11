@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: c455_db
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: appdb
+    ports:
+      - "5445:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [appnet]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: c455_backend
+    ports:
+      - "8445:8000"
+    env_file:
+      - ./.env
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://appuser:secretpassword@c455_db:5432/appdb
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks: [appnet]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: c455_frontend
+    ports:
+      - "3445:3000"
+    env_file:
+      - ./.env
+      - ./frontend/.env.local
+    volumes:
+      - ./frontend:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on: [backend]
+    command: npm run dev
+    networks: [appnet]
+
+volumes:
+  pg_data:
+
+networks:
+  appnet:
+    driver: bridge
