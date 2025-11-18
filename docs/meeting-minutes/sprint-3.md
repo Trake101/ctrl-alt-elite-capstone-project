@@ -1,4 +1,4 @@
-# Sprint 2 Meeting Minutes
+# Sprint 3 Meeting Minutes
 Date: 10/8/2025 
 Time: 7:30-8:00PM
 
