@@ -213,7 +213,8 @@ node_modules/
 out/
 dist/
 build/
-.yarn/
+.yarn/cache/
+.yarn/install-state.gz
 .pnp/
 .pnp.js
 *.log
