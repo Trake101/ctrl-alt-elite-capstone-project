@@ -1,30 +1,32 @@
-from fastapi import FastAPI, Depends
+"""FastAPI application entry point."""
+from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from .db import Base, engine, get_db
-from .models import Widget
 
-app = FastAPI()
+from .db import Base, engine, get_db
+from .routers import projects, users
+
+# Load environment variables from .env file
+# This is safe to call multiple times, and will only load if file exists
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
+app = FastAPI(redirect_slashes=False)
 
 @app.on_event("startup")
 def on_startup():
-    # Create tables if they don't exist
+    """Create database tables on application startup."""
     Base.metadata.create_all(bind=engine)
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
-    # DB round trip to ensure it's really up
+    """Health check endpoint that verifies database connectivity."""
     db.execute(text("SELECT 1"))
     return {"status": "ok", "db": "up"}
 
-@app.post("/api/widgets")
-def create_widget(name: str, db: Session = Depends(get_db)):
-    w = Widget(name=name)
-    db.add(w)
-    db.commit()
-    db.refresh(w)
-    return {"id": w.id, "name": w.name}
-
-@app.get("/api/widgets")
-def list_widgets(db: Session = Depends(get_db)):
-    return [{"id": w.id, "name": w.name} for w in db.query(Widget).all()]
+# Include routers
+app.include_router(users.router)
+app.include_router(projects.router)
