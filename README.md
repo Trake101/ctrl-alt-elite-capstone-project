@@ -90,6 +90,91 @@ The example files include:
 
 ---
 
+## 🗄️ Database Migrations
+
+This project uses [Alembic](https://alembic.sqlalchemy.org/) for database migrations.
+
+### Running Migrations
+
+From the `backend` directory:
+
+```bash
+# Create a new migration
+alembic revision --autogenerate -m "description of changes"
+
+# Apply all pending migrations
+alembic upgrade head
+
+# Rollback the last migration
+alembic downgrade -1
+
+# View migration history
+alembic history
+
+# Show current database revision
+alembic current
+```
+
+### Migration Workflow
+
+1. **Make changes** to your SQLAlchemy models in `backend/app/models.py`
+2. **Generate migration**: `alembic revision --autogenerate -m "your message"`
+3. **Review the generated migration** in `backend/alembic/versions/`
+4. **Apply migration**: `alembic upgrade head`
+
+> **Note**: When running in Docker, execute migration commands inside the backend container:
+> ```bash
+> docker-compose exec backend alembic upgrade head
+> ```
+
+---
+
+## 🧪 Running Tests
+
+The backend includes a comprehensive test suite using pytest.
+
+### Prerequisites
+
+Ensure dependencies are installed:
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+### Running Tests
+
+From the `backend` directory:
+
+```bash
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run a specific test file
+pytest tests/test_users.py
+
+# Run a specific test
+pytest tests/test_users.py::test_create_user
+
+# Run with coverage (requires pytest-cov)
+pytest --cov=app --cov-report=html
+```
+
+### Test Structure
+
+- `tests/conftest.py` - Pytest fixtures for database sessions and test client
+- `tests/test_main.py` - Tests for main application endpoints (health check)
+- `tests/test_users.py` - Tests for user endpoints
+
+Tests use an in-memory SQLite database, ensuring:
+- Tests are isolated from each other
+- Tests don't affect the development database
+- Tests run quickly
+
+---
+
 ## 📜 License
 
 BSD 2-Clause Simplified License – feel free to fork and build on this project.
