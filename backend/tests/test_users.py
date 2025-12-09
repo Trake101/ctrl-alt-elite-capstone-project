@@ -1,4 +1,5 @@
 """Tests for user-related endpoints."""
+import uuid
 from fastapi import status
 
 
@@ -18,7 +19,8 @@ def test_create_user(client):
     assert data["first_name"] == "John"
     assert data["last_name"] == "Doe"
     assert "id" in data
-    assert isinstance(data["id"], int)
+    # Verify it's a valid UUID string
+    uuid.UUID(data["id"])
 
 
 def test_create_user_minimal(client):
@@ -140,6 +142,11 @@ def test_user_response_model(client):
     user = response.json()
 
     # Verify all expected fields are present
-    required_fields = ["id", "clerk_id", "email", "first_name", "last_name"]
+    required_fields = ["id", "clerk_id", "email", "first_name", "last_name", "created_at", "updated_at", "deleted_at"]
     for field in required_fields:
         assert field in user
+    
+    # Verify timestamp fields are properly set
+    assert user["created_at"] is not None
+    assert user["updated_at"] is not None
+    assert user["deleted_at"] is None  # Should be None for new users

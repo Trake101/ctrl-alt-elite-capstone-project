@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
-from .routers import projects, users
+from .routers import projects, swim_lanes, users
 
 # Load environment variables from .env file
 # This is safe to call multiple times, and will only load if file exists
@@ -30,3 +30,4 @@ def health(db: Session = Depends(get_db)):
 # Include routers
 app.include_router(users.router)
 app.include_router(projects.router)
+app.include_router(swim_lanes.router)

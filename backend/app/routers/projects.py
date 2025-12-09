@@ -1,4 +1,5 @@
 """Project-related API endpoints."""
+import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user_id
 from ..db import get_db
-from ..models import Project, User
+from ..models import Project, ProjectSwimLane, User
 from ..schemas import ProjectCreate, ProjectResponse
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
-    project_id: int,
+    project_id: uuid.UUID,
     clerk_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
@@ -99,5 +100,15 @@ async def create_project(
     db.add(new_project)
     db.commit()
     db.refresh(new_project)
+
+    # Create default swim lanes: Backlog, To Do, and Done
+    default_swim_lanes = [
+        ProjectSwimLane(project_id=new_project.project_id, name="Backlog", order=0),
+        ProjectSwimLane(project_id=new_project.project_id, name="To Do", order=1),
+        ProjectSwimLane(project_id=new_project.project_id, name="Done", order=2),
+    ]
+
+    db.add_all(default_swim_lanes)
+    db.commit()
 
     return new_project

@@ -9,9 +9,9 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Project {
-  project_id: number;
+  project_id: string;
   name: string;
-  owner_id: number;
+  owner_id: string;
   created_at: string;
   updated_at: string;
 }
