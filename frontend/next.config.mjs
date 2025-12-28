@@ -8,6 +8,15 @@ const __dirname = path.dirname(__filename);
 const nextConfig = {
   // Enable webpack polling for better file watching in Docker (dev only)
   webpack: (config, { dev, isServer }) => {
+    // Always set up path aliases first (before any conditional logic)
+    const projectRoot = path.resolve(__dirname, ".");
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      "@": projectRoot,
+    };
+
+    // Enable webpack polling for better file watching in Docker (dev only)
     if (dev && !isServer) {
       config.watchOptions = {
         poll: 1000,
@@ -15,11 +24,7 @@ const nextConfig = {
         ignored: ["**/node_modules", "**/.git", "**/.next"],
       };
     }
-    // Resolve path aliases for @/ imports
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "@": path.resolve(__dirname, "."),
-    };
+
     return config;
   },
   async rewrites() {
