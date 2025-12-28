@@ -7,14 +7,29 @@ const __dirname = path.dirname(__filename);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable webpack polling for better file watching in Docker (dev only)
-  webpack: (config, { dev, isServer }) => {
+  webpack: (config, { dev, isServer, webpack }) => {
     // Always set up path aliases first (before any conditional logic)
-    const projectRoot = path.resolve(__dirname, ".");
-    config.resolve = config.resolve || {};
+    // Use absolute path resolution to ensure it works in all environments
+    const projectRoot = path.resolve(process.cwd());
+
+    // Ensure resolve object exists
+    if (!config.resolve) {
+      config.resolve = {};
+    }
+
+    // Set up alias - use both absolute and relative resolution
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       "@": projectRoot,
     };
+
+    // Also add to modules for additional resolution paths
+    if (!config.resolve.modules) {
+      config.resolve.modules = [];
+    }
+    if (!config.resolve.modules.includes(projectRoot)) {
+      config.resolve.modules = [projectRoot, ...config.resolve.modules];
+    }
 
     // Enable webpack polling for better file watching in Docker (dev only)
     if (dev && !isServer) {
