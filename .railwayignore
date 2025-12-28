@@ -1,0 +1,14 @@
+# Files to ignore when deploying to Railway
+node_modules/
+.git/
+.env
+.env.local
+*.md
+docs/
+tests/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.idea/
+

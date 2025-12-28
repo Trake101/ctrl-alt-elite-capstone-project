@@ -21,12 +21,14 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
+    // Use environment variable for backend URL, fallback to local Docker setup
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || "http://c455_backend:8000";
     return [
       {
         source: "/api/:path*",
-        destination: "http://c455_backend:8000/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
-      { source: "/health", destination: "http://c455_backend:8000/health" },
+      { source: "/health", destination: `${backendUrl}/health` },
     ];
   },
 };
