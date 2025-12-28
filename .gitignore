@@ -222,3 +222,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# Exception: frontend/lib/ should be tracked (it contains source code)
+!frontend/lib/
