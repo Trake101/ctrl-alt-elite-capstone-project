@@ -128,6 +128,21 @@ This ensures your database schema is always up to date when the backend starts.
 
 ## Troubleshooting
 
+### Clearing Build Cache
+
+Railway doesn't have a direct "Clear Cache" button, but you can force a fresh build:
+
+1. **Using Environment Variable** (Recommended):
+   - Go to your service → Settings → Variables
+   - Add a new variable: `NO_CACHE=1`
+   - Trigger a new deployment
+   - Remove the variable after the build succeeds (optional)
+
+2. **Alternative Methods**:
+   - Make a small change to any file (like adding a comment) and commit/push
+   - This will trigger a new build with updated cache
+   - Or temporarily add `--no-cache` to your Dockerfile build command
+
 ### Backend won't start
 - Check that `DATABASE_URL` is correctly set and the database is accessible
 - Verify that migrations can run successfully
@@ -147,6 +162,8 @@ This ensures your database schema is always up to date when the backend starts.
 - Check that all dependencies are in `requirements.txt` (backend) and `package.json` (frontend)
 - Verify Dockerfiles are using the correct build targets (`prod`)
 - Review build logs in Railway dashboard
+- If you see "Module not found" errors, try setting `NO_CACHE=1` to force a fresh build
+- Check that all source files (like `lib/utils.ts`) are being copied correctly in the Dockerfile
 
 ## Monitoring
 

@@ -32,9 +32,12 @@ CMD ["yarn","dev"]
 
 # ----- Prod build -----
 FROM base AS builder
+# Copy all files (including lib directory for path aliases)
 COPY . .
 # Remove old lockfile if it exists and regenerate with node-modules mode
 RUN rm -f yarn.lock && yarn install
+# Verify lib/utils.ts exists before building
+RUN test -f lib/utils.ts || (echo "ERROR: lib/utils.ts not found!" && ls -la lib/ && exit 1)
 RUN yarn build
 
 FROM node:20-alpine AS prod
