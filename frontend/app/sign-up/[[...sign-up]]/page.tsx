@@ -1,5 +1,8 @@
 import { SignUp } from '@clerk/nextjs';
 
+// Force dynamic rendering to avoid Clerk key requirement during build
+export const dynamic = 'force-dynamic';
+
 export default function SignUpPage() {
   return (
     <div style={{

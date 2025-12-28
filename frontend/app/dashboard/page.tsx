@@ -4,6 +4,9 @@ import { Navbar } from '@/components/ui/navbar';
 import { CreateProjectButton } from './create-project-button';
 import { ProjectsList } from './projects-list';
 
+// Force dynamic rendering to avoid Clerk key requirement during build
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const user = await currentUser();
 
