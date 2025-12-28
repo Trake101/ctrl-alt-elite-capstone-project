@@ -1,3 +1,9 @@
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable webpack polling for better file watching in Docker (dev only)
@@ -9,6 +15,11 @@ const nextConfig = {
         ignored: ["**/node_modules", "**/.git", "**/.next"],
       };
     }
+    // Resolve path aliases for @/ imports
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@": path.resolve(__dirname, "."),
+    };
     return config;
   },
   async rewrites() {
