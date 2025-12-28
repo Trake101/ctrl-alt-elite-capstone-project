@@ -48,7 +48,9 @@ RUN corepack enable && corepack prepare yarn@3.6.4 --activate
 # Copy package files from builder (which has the correct lockfile)
 COPY --from=builder /usr/src/app/package.json ./
 COPY --from=builder /usr/src/app/yarn.lock ./
-RUN yarn install --production --frozen-lockfile
+# Yarn 3.x: Use --immutable instead of deprecated --frozen-lockfile
+# Install all dependencies (dev deps needed for next start)
+RUN yarn install --immutable
 COPY --from=builder /usr/src/app ./
 EXPOSE 3000
 CMD ["yarn","start"]
