@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.5",
+    "@next/env": "^14.2.35",
     "@radix-ui/react-dialog": "^1.1.15",
     "@swc/helpers": "^0.5.18",
     "class-variance-authority": "^0.7.1",

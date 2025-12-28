@@ -11,6 +11,7 @@
 These are required by Next.js at runtime but not listed as peer dependencies:
 - ✅ `styled-jsx@^5.1.7` - Required for Next.js styled-jsx support
 - ✅ `@swc/helpers@^0.5.18` - Required for Next.js SWC compilation
+- ✅ `@next/env@^14.2.35` - Required for Next.js environment variable handling
 
 ### Authentication
 - ✅ `@clerk/nextjs@^6.35.5` - Clerk authentication
