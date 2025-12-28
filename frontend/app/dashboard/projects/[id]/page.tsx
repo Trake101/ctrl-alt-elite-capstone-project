@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Navbar } from '@/components/ui/navbar';
 import { UserSync } from '../../user-sync';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Project {
@@ -125,18 +125,7 @@ export default function ProjectPage() {
       <Navbar />
       <main className="container mx-auto px-6 py-6">
         <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/dashboard')}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </div>
-        
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold">{project.name}</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
         </div>
 
         {/* Content area - will be added later */}
