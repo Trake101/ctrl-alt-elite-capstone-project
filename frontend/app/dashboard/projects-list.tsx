@@ -151,16 +151,6 @@ export function ProjectsList() {
                 </span>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-x-2">
-                <Badge variant="brand">
-                  Active
-                </Badge>
-                <Badge variant="secondary">
-                  Project
-                </Badge>
-              </div>
-            </CardContent>
             <CardFooter>
               <div className="flex gap-x-2 items-center justify-between w-full">
                 <div className="space-x-2">
