@@ -6,6 +6,9 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Add empty turbopack config to allow webpack config
+  // Next.js 16 uses Turbopack by default, but we have custom webpack config
+  turbopack: {},
   // Enable webpack polling for better file watching in Docker (dev only)
   webpack: (config, { dev, isServer, webpack }) => {
     // Always set up path aliases first (before any conditional logic)
