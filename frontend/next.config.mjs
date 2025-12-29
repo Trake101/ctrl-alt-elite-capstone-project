@@ -50,15 +50,33 @@ const nextConfig = {
     // In Railway, NEXT_PUBLIC_BACKEND_URL should be set to the public backend URL
     // For local Docker development, fallback to container name
     const isProduction = process.env.NODE_ENV === "production";
+
+    // Check all possible environment variable names
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
       process.env.BACKEND_URL?.trim() ||
       (isProduction ? null : "http://c455_backend:8000");
 
-    // Log the backend URL being used (helpful for debugging)
+    // Log environment variable status (helpful for debugging)
+    console.log(`[Next.js Config] NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(
+      `[Next.js Config] NEXT_PUBLIC_BACKEND_URL: ${
+        process.env.NEXT_PUBLIC_BACKEND_URL || "NOT SET"
+      }`
+    );
+    console.log(
+      `[Next.js Config] BACKEND_URL: ${process.env.BACKEND_URL || "NOT SET"}`
+    );
+    console.log(
+      `[Next.js Config] Resolved Backend URL: ${backendUrl || "NOT SET"}`
+    );
+
+    // Ensure backendUrl doesn't end with a slash
+    const cleanBackendUrl = backendUrl?.replace(/\/$/, "");
+
+    // In production, we must have a valid backend URL
     if (isProduction) {
-      console.log(`[Next.js Config] Backend URL: ${backendUrl || "NOT SET"}`);
-      if (!backendUrl) {
+      if (!cleanBackendUrl) {
         console.error(
           "ERROR: NEXT_PUBLIC_BACKEND_URL is not set in production. " +
             "Please set NEXT_PUBLIC_BACKEND_URL in Railway to your backend service URL."
@@ -66,28 +84,46 @@ const nextConfig = {
         // Return empty rewrites - this will cause API calls to fail, but that's better than using wrong URL
         return [];
       }
+
+      // Validate that we're not using Docker container names in production
+      if (
+        cleanBackendUrl.includes("c455_backend") ||
+        cleanBackendUrl.startsWith("http://c455_")
+      ) {
+        console.error(
+          "ERROR: Backend URL appears to be using Docker container name in production. " +
+            `Current value: ${cleanBackendUrl}. ` +
+            "Please set NEXT_PUBLIC_BACKEND_URL to your Railway backend service URL (e.g., https://your-backend.railway.app)"
+        );
+        return [];
+      }
+
+      // Validate URL format
+      if (
+        !cleanBackendUrl.startsWith("http://") &&
+        !cleanBackendUrl.startsWith("https://")
+      ) {
+        console.error(
+          `ERROR: Backend URL must start with http:// or https://. Current value: ${cleanBackendUrl}`
+        );
+        return [];
+      }
     }
 
-    // Ensure backendUrl doesn't end with a slash and is a valid URL
-    const cleanBackendUrl = backendUrl?.replace(/\/$/, "");
-
-    // Validate that we're not using Docker container names in production
-    if (isProduction && cleanBackendUrl?.includes("c455_backend")) {
-      console.error(
-        "ERROR: Backend URL appears to be using Docker container name in production. " +
-          `Current value: ${cleanBackendUrl}. ` +
-          "Please set NEXT_PUBLIC_BACKEND_URL to your Railway backend service URL (e.g., https://your-backend.railway.app)"
-      );
-      return [];
-    }
-
-    return [
+    const rewrites = [
       {
         source: "/api/:path*",
         destination: `${cleanBackendUrl}/api/:path*`,
       },
       { source: "/health", destination: `${cleanBackendUrl}/health` },
     ];
+
+    console.log(
+      `[Next.js Config] Configured rewrites:`,
+      JSON.stringify(rewrites, null, 2)
+    );
+
+    return rewrites;
   },
 };
 export default nextConfig;
