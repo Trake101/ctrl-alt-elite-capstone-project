@@ -150,3 +150,73 @@ def test_user_response_model(client):
     assert user["created_at"] is not None
     assert user["updated_at"] is not None
     assert user["deleted_at"] is None  # Should be None for new users
+
+
+def test_get_all_users(client, db_session):
+    """Test getting all users."""
+    # Create multiple users
+    from app.models import User
+    user1 = User(
+        clerk_id="user_list_1",
+        email="list1@example.com",
+        first_name="User",
+        last_name="One"
+    )
+    user2 = User(
+        clerk_id="user_list_2",
+        email="list2@example.com",
+        first_name="User",
+        last_name="Two"
+    )
+    db_session.add_all([user1, user2])
+    db_session.commit()
+
+    # Get all users
+    response = client.get("/api/users")
+    assert response.status_code == status.HTTP_200_OK
+    users = response.json()
+    
+    # Should return at least our 2 users (may have more from other tests)
+    user_emails = [u["email"] for u in users]
+    assert "list1@example.com" in user_emails
+    assert "list2@example.com" in user_emails
+    
+    # Verify all users have required fields
+    for user in users:
+        assert "id" in user
+        assert "clerk_id" in user
+        assert "email" in user
+        assert "first_name" in user
+        assert "last_name" in user
+
+
+def test_get_all_users_excludes_deleted(client, db_session):
+    """Test that deleted users are not returned in the list."""
+    from datetime import datetime, timezone
+    from app.models import User
+    
+    # Create active user
+    active_user = User(
+        clerk_id="active_user",
+        email="active@example.com"
+    )
+    
+    # Create deleted user
+    deleted_user = User(
+        clerk_id="deleted_user",
+        email="deleted@example.com",
+        deleted_at=datetime.now(timezone.utc)
+    )
+    
+    db_session.add_all([active_user, deleted_user])
+    db_session.commit()
+
+    # Get all users
+    response = client.get("/api/users")
+    assert response.status_code == status.HTTP_200_OK
+    users = response.json()
+    
+    # Should not include deleted user
+    user_emails = [u["email"] for u in users]
+    assert "active@example.com" in user_emails
+    assert "deleted@example.com" not in user_emails

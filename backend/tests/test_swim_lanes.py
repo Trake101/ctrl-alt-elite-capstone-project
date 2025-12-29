@@ -3,6 +3,103 @@ import uuid
 from fastapi import status
 
 
+def test_get_project_swim_lanes(client, db_session):
+    """Test getting all swim lanes for a project."""
+    # First create a user and project
+    from app.models import User, Project, ProjectSwimLane
+    user = User(
+        clerk_id="test_clerk_user_123",
+        email="test@example.com"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    project = Project(name="Test Project", owner_id=user.id)
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    # Create multiple swim lanes
+    swim_lane1 = ProjectSwimLane(project_id=project.project_id, name="Lane 1", order=0)
+    swim_lane2 = ProjectSwimLane(project_id=project.project_id, name="Lane 2", order=1)
+    swim_lane3 = ProjectSwimLane(project_id=project.project_id, name="Lane 3", order=2)
+    db_session.add_all([swim_lane1, swim_lane2, swim_lane3])
+    db_session.commit()
+
+    # Get swim lanes
+    response = client.get(f"/api/swim-lanes/project/{project.project_id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 3
+    # Should be ordered by order field
+    assert data[0]["name"] == "Lane 1"
+    assert data[0]["order"] == 0
+    assert data[1]["name"] == "Lane 2"
+    assert data[1]["order"] == 1
+    assert data[2]["name"] == "Lane 3"
+    assert data[2]["order"] == 2
+
+
+def test_get_project_swim_lanes_excludes_deleted(client, db_session):
+    """Test that deleted swim lanes are not returned."""
+    from datetime import datetime, timezone
+    from app.models import User, Project, ProjectSwimLane
+    user = User(
+        clerk_id="test_clerk_user_123",
+        email="test@example.com"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    project = Project(name="Test Project", owner_id=user.id)
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    # Create active and deleted swim lanes
+    active_lane = ProjectSwimLane(project_id=project.project_id, name="Active", order=0)
+    deleted_lane = ProjectSwimLane(
+        project_id=project.project_id,
+        name="Deleted",
+        order=1,
+        deleted_at=datetime.now(timezone.utc)
+    )
+    db_session.add_all([active_lane, deleted_lane])
+    db_session.commit()
+
+    # Get swim lanes
+    response = client.get(f"/api/swim-lanes/project/{project.project_id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Active"
+    assert data[0]["deleted_at"] is None
+
+
+def test_get_project_swim_lanes_unauthorized(client, db_session):
+    """Test that users can't get swim lanes for projects they don't own."""
+    # Create two users
+    from app.models import User, Project
+    user1 = User(clerk_id="test_clerk_user_123", email="user1@example.com")
+    user2 = User(clerk_id="test_clerk_user_456", email="user2@example.com")
+    db_session.add_all([user1, user2])
+    db_session.commit()
+    db_session.refresh(user1)
+    db_session.refresh(user2)
+
+    # Create project owned by user2
+    project = Project(name="User2 Project", owner_id=user2.id)
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    # User1 tries to get swim lanes for user2's project
+    response = client.get(f"/api/swim-lanes/project/{project.project_id}")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_create_swim_lane(client, db_session):
     """Test creating a new swim lane."""
     # First create a user and project
