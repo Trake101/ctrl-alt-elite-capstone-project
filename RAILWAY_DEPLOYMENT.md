@@ -71,8 +71,10 @@ Add these environment variables in the Railway service settings:
 Add these environment variables in the Railway service settings:
 
 - `NEXT_PUBLIC_BACKEND_URL`: The public URL of your backend service
-  - Format: `https://your-backend-service.railway.app`
+  - Format: `https://your-backend-service.railway.app` (must be a full URL with protocol)
   - You can find this in your backend service's settings under "Domains"
+  - **CRITICAL**: This must be set BEFORE the first build. If not set, the build will fail or use incorrect Docker container names.
+  - Do NOT use Docker container names (e.g., `http://c455_backend:8000`) - use the Railway public URL
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Your Clerk publishable key
 - `CLERK_SECRET_KEY`: Your Clerk secret key
 - `NEXT_PUBLIC_CLERK_SIGN_IN_URL`: `/sign-in` (or your custom sign-in path)
@@ -80,7 +82,10 @@ Add these environment variables in the Railway service settings:
 - `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL`: `/dashboard`
 - `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL`: `/dashboard`
 
-**Important**: The `NEXT_PUBLIC_*` prefix makes these variables available in the browser.
+**Important**: 
+- The `NEXT_PUBLIC_*` prefix makes these variables available in the browser.
+- Environment variables are evaluated at BUILD TIME for Next.js rewrites, so they must be set before building.
+- If you change `NEXT_PUBLIC_BACKEND_URL`, you must trigger a new build (redeploy) for the change to take effect.
 
 ### 5. Configure Domains
 
@@ -149,9 +154,34 @@ Railway doesn't have a direct "Clear Cache" button, but you can force a fresh bu
 - Check the Railway logs for error messages
 
 ### Frontend can't connect to backend
-- Verify `NEXT_PUBLIC_BACKEND_URL` is set correctly
+
+#### 404 errors on `/api/*` routes
+If you're getting 404 errors when calling `/api/projects`, `/api/users`, etc., this means Next.js rewrites are not configured correctly:
+
+1. **Check the build logs** for these messages:
+   - `[Next.js Config] NEXT_PUBLIC_BACKEND_URL: ...` - Should show your backend URL
+   - `[Next.js Config] Resolved Backend URL: ...` - Should show the resolved URL
+   - `[Next.js Config] Configured rewrites: ...` - Should show the rewrite rules
+
+2. **If you see "NOT SET"** in the logs:
+   - Go to your frontend service in Railway
+   - Click "Variables" tab
+   - Add or update `NEXT_PUBLIC_BACKEND_URL` with your backend's public URL (e.g., `https://your-backend.railway.app`)
+   - **Important**: The URL must start with `http://` or `https://` and have no trailing slash
+   - Redeploy the frontend service (the variable must be set BEFORE the build runs)
+
+3. **If the variable is set but still getting 404**:
+   - Check that the backend URL is correct and accessible
+   - Verify the backend service is running
+   - Try accessing the backend URL directly in a browser (e.g., `https://your-backend.railway.app/health`)
+
+#### Other connection errors
+- **Common error**: If you see `getaddrinfo ENOTFOUND c455_backend`, it means the environment variable is not set or not available at build time
+  - Solution: Set `NEXT_PUBLIC_BACKEND_URL` in Railway and trigger a new deployment
+  - The variable must be set BEFORE the build runs
 - Ensure the backend service is running and accessible
 - Check CORS settings if you see CORS errors
+- Check the build logs for `[Next.js Config] Backend URL:` to see what URL is being used
 
 ### Database connection issues
 - Ensure the database service is running

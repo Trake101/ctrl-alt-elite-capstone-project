@@ -47,17 +47,25 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
-    // Use environment variable for backend URL, fallback to local Docker setup
+    // Note: API routes in /app/api/[...path]/route.ts handle /api/* requests at runtime
+    // This rewrites function is kept for the /health endpoint only
+    // For local Docker development, we can still use rewrites as a fallback
+    const isProduction = process.env.NODE_ENV === "production";
     const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.BACKEND_URL ||
-      "http://c455_backend:8000";
+      process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+      process.env.BACKEND_URL?.trim() ||
+      (isProduction ? null : "http://c455_backend:8000");
+
+    // Only set up rewrites for health endpoint or if we have a backend URL in dev
+    if (!backendUrl) {
+      return [];
+    }
+
+    const cleanBackendUrl = backendUrl.replace(/\/$/, "");
+
     return [
-      {
-        source: "/api/:path*",
-        destination: `${backendUrl}/api/:path*`,
-      },
-      { source: "/health", destination: `${backendUrl}/health` },
+      // Health endpoint rewrite (API routes handle /api/* at runtime)
+      { source: "/health", destination: `${cleanBackendUrl}/health` },
     ];
   },
 };
