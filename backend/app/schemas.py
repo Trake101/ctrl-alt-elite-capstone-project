@@ -1,7 +1,7 @@
 """Pydantic schemas for request/response validation."""
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, EmailStr
 
@@ -29,11 +29,18 @@ class ProjectCreate(BaseModel):
     name: str
 
 
+class ProjectUpdate(BaseModel):
+    """Schema for updating a project."""
+    name: Optional[str] = None
+    roles: Optional[List[str]] = None
+
+
 class ProjectResponse(BaseModel):
     """Schema for project response data."""
     project_id: uuid.UUID
     name: str
     owner_id: uuid.UUID
+    roles: Optional[List[str]] = None
     created_at: datetime
     updated_at: datetime
 
@@ -60,6 +67,47 @@ class SwimLaneResponse(BaseModel):
     project_id: uuid.UUID
     name: str
     order: int
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectUserRoleCreate(BaseModel):
+    """Schema for creating a project user role."""
+    project_id: uuid.UUID
+    user_id: uuid.UUID
+    role: str
+
+
+class ProjectUserRoleUpdate(BaseModel):
+    """Schema for updating a project user role."""
+    role: Optional[str] = None
+
+
+class ProjectUserRoleResponse(BaseModel):
+    """Schema for project user role response data."""
+    id: uuid.UUID
+    project_id: uuid.UUID
+    user_id: uuid.UUID
+    role: str
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectUserRoleWithUserResponse(BaseModel):
+    """Schema for project user role with user details."""
+    id: uuid.UUID
+    project_id: uuid.UUID
+    user_id: uuid.UUID
+    role: str
+    user: UserResponse
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None

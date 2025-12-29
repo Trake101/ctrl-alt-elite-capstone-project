@@ -161,3 +161,122 @@ def test_get_project_unauthorized(client, db_session):
     response = client.get(f"/api/projects/{project.project_id}")
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
+
+def test_update_project_name(client, db_session):
+    """Test updating a project's name."""
+    # First create a user and project
+    from app.models import User, Project
+    user = User(
+        clerk_id="test_clerk_user_123",
+        email="test@example.com"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    project = Project(name="Original Name", owner_id=user.id)
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    # Update project name
+    update_data = {"name": "Updated Name"}
+    response = client.put(f"/api/projects/{project.project_id}", json=update_data)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["name"] == "Updated Name"
+    assert data["project_id"] == str(project.project_id)
+
+
+def test_update_project_roles(client, db_session):
+    """Test updating a project's roles."""
+    # First create a user and project
+    from app.models import User, Project
+    user = User(
+        clerk_id="test_clerk_user_123",
+        email="test@example.com"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    project = Project(name="Test Project", owner_id=user.id, roles=["admin", "editor"])
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    # Update project roles
+    update_data = {"roles": ["admin", "editor", "viewer"]}
+    response = client.put(f"/api/projects/{project.project_id}", json=update_data)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["roles"] == ["admin", "editor", "viewer"]
+    assert len(data["roles"]) == 3
+
+
+def test_update_project_name_and_roles(client, db_session):
+    """Test updating both project name and roles."""
+    # First create a user and project
+    from app.models import User, Project
+    user = User(
+        clerk_id="test_clerk_user_123",
+        email="test@example.com"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    project = Project(name="Original Name", owner_id=user.id, roles=["admin"])
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    # Update both name and roles
+    update_data = {"name": "New Name", "roles": ["admin", "viewer"]}
+    response = client.put(f"/api/projects/{project.project_id}", json=update_data)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["name"] == "New Name"
+    assert data["roles"] == ["admin", "viewer"]
+
+
+def test_update_project_unauthorized(client, db_session):
+    """Test that users can't update projects they don't own."""
+    # Create two users
+    from app.models import User, Project
+    user1 = User(clerk_id="test_clerk_user_123", email="user1@example.com")
+    user2 = User(clerk_id="test_clerk_user_456", email="user2@example.com")
+    db_session.add_all([user1, user2])
+    db_session.commit()
+    db_session.refresh(user1)
+    db_session.refresh(user2)
+
+    # Create project owned by user2
+    project = Project(name="User2 Project", owner_id=user2.id)
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    # User1 (test_clerk_user_123) tries to update user2's project
+    update_data = {"name": "Hacked Name"}
+    response = client.put(f"/api/projects/{project.project_id}", json=update_data)
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_update_project_not_found(client, db_session):
+    """Test updating a project that doesn't exist."""
+    # First create a user
+    from app.models import User
+    user = User(
+        clerk_id="test_clerk_user_123",
+        email="test@example.com"
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    # Try to update non-existent project
+    fake_id = uuid.uuid4()
+    update_data = {"name": "New Name"}
+    response = client.put(f"/api/projects/{fake_id}", json=update_data)
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
