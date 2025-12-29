@@ -46,17 +46,47 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
-    // Use environment variable for backend URL, fallback to local Docker setup
+    // Use environment variable for backend URL
+    // In Railway, NEXT_PUBLIC_BACKEND_URL should be set to the public backend URL
+    // For local Docker development, fallback to container name
+    const isProduction = process.env.NODE_ENV === "production";
     const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.BACKEND_URL ||
-      "http://c455_backend:8000";
+      process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+      process.env.BACKEND_URL?.trim() ||
+      (isProduction ? null : "http://c455_backend:8000");
+
+    // Log the backend URL being used (helpful for debugging)
+    if (isProduction) {
+      console.log(`[Next.js Config] Backend URL: ${backendUrl || "NOT SET"}`);
+      if (!backendUrl) {
+        console.error(
+          "ERROR: NEXT_PUBLIC_BACKEND_URL is not set in production. " +
+            "Please set NEXT_PUBLIC_BACKEND_URL in Railway to your backend service URL."
+        );
+        // Return empty rewrites - this will cause API calls to fail, but that's better than using wrong URL
+        return [];
+      }
+    }
+
+    // Ensure backendUrl doesn't end with a slash and is a valid URL
+    const cleanBackendUrl = backendUrl?.replace(/\/$/, "");
+
+    // Validate that we're not using Docker container names in production
+    if (isProduction && cleanBackendUrl?.includes("c455_backend")) {
+      console.error(
+        "ERROR: Backend URL appears to be using Docker container name in production. " +
+          `Current value: ${cleanBackendUrl}. ` +
+          "Please set NEXT_PUBLIC_BACKEND_URL to your Railway backend service URL (e.g., https://your-backend.railway.app)"
+      );
+      return [];
+    }
+
     return [
       {
         source: "/api/:path*",
-        destination: `${backendUrl}/api/:path*`,
+        destination: `${cleanBackendUrl}/api/:path*`,
       },
-      { source: "/health", destination: `${backendUrl}/health` },
+      { source: "/health", destination: `${cleanBackendUrl}/health` },
     ];
   },
 };
