@@ -1,29 +1,20 @@
 'use client';
 
 import { UserButton } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
+import { Logo } from '@/components/logo';
 
 export function Navbar() {
-  const router = useRouter();
-
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border bg-card">
-      <div className="container mx-auto px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center">
-            <h1 
-              onClick={() => router.push('/dashboard')}
-              className="text-xl font-semibold cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              Task Board
-            </h1>
-          </div>
-          <div className="flex items-center">
-            <UserButton afterSignOutUrl="/sign-in" />
-          </div>
+    <header className="bg-navbar text-navbar-foreground sticky left-0 top-0 shadow-md z-50">
+      <div className="px-4 flex justify-between items-center h-[48px] relative">
+        <div className="flex items-center space-x-4">
+          <Logo theme="dark" />
+        </div>
+        <div className="flex items-center">
+          <UserButton afterSignOutUrl="/sign-in" />
         </div>
       </div>
-    </nav>
+    </header>
   );
 }
 

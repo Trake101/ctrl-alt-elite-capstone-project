@@ -1,5 +1,12 @@
 import { ClerkProvider } from '@clerk/nextjs';
+import { Inter as FontSans } from 'next/font/google';
+import { cn } from '@/lib/utils';
 import './globals.css';
+
+const fontSans = FontSans({ 
+  subsets: ['latin'], 
+  variable: '--font-sans' 
+});
 
 // Force dynamic rendering to avoid Clerk key requirement during build
 export const dynamic = 'force-dynamic';
@@ -11,8 +18,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   if (!publishableKey) {
     // During build or if key is missing, render without Clerk
     return (
-      <html lang="en" className="dark">
-        <body className="min-h-screen">
+      <html lang="en" suppressHydrationWarning>
+        <body className={cn('min-h-screen bg-background font-sans antialiased', fontSans.variable)}>
           {children}
         </body>
       </html>
@@ -21,8 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <ClerkProvider>
-      <html lang="en" className="dark">
-        <body className="min-h-screen">
+      <html lang="en" suppressHydrationWarning>
+        <body className={cn('min-h-screen bg-background font-sans antialiased', fontSans.variable)}>
           {children}
         </body>
       </html>

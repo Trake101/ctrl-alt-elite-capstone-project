@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user_id
 from ..db import get_db
 from ..models import Project, ProjectSwimLane, User
-from ..schemas import ProjectCreate, ProjectResponse
+from ..schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -44,6 +44,50 @@ async def get_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found or you don't have access to it."
         )
+
+    return project
+
+
+@router.put("/{project_id}", response_model=ProjectResponse)
+async def update_project(
+    project_id: uuid.UUID,
+    project_data: ProjectUpdate,
+    clerk_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a project by ID.
+    Only allows updating projects owned by the authenticated user.
+    Requires a valid Clerk session token in the Authorization header.
+    """
+    # Find the user in our database by clerk_id
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please ensure your user is synced to the database."
+        )
+
+    # Get the project and verify ownership
+    project = db.query(Project).filter(
+        Project.project_id == project_id,
+        Project.owner_id == user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found or you don't have access to it."
+        )
+
+    # Update the project with provided data
+    update_data = project_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(project, field, value)
+
+    db.commit()
+    db.refresh(project)
 
     return project
 

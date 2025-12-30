@@ -1,4 +1,5 @@
 """User-related API endpoints."""
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..db import get_db
@@ -41,6 +42,13 @@ def create_or_update_user(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     return new_user
+
+@router.get("", response_model=List[UserResponse])
+def get_all_users(db: Session = Depends(get_db)):
+    """Get all users."""
+    users = db.query(User).filter(User.deleted_at.is_(None)).all()
+    return users
+
 
 @router.get("/{clerk_id}", response_model=UserResponse)
 def get_user_by_clerk_id(clerk_id: str, db: Session = Depends(get_db)):

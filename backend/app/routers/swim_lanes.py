@@ -1,6 +1,7 @@
 """Swim lane-related API endpoints."""
 import uuid
 from datetime import datetime, timezone
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -45,6 +46,29 @@ def verify_project_ownership(
         )
 
     return project
+
+
+@router.get("/project/{project_id}", response_model=List[SwimLaneResponse])
+async def get_project_swim_lanes(
+    project_id: uuid.UUID,
+    clerk_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all swim lanes for a project.
+    Requires the user to own the project.
+    Requires a valid Clerk session token in the Authorization header.
+    """
+    # Verify project ownership
+    verify_project_ownership(project_id, clerk_user_id, db)
+
+    # Get all swim lanes for this project that are not deleted, ordered by order
+    swim_lanes = db.query(ProjectSwimLane).filter(
+        ProjectSwimLane.project_id == project_id,
+        ProjectSwimLane.deleted_at.is_(None)
+    ).order_by(ProjectSwimLane.order).all()
+
+    return swim_lanes
 
 
 @router.post("", response_model=SwimLaneResponse, status_code=status.HTTP_201_CREATED)

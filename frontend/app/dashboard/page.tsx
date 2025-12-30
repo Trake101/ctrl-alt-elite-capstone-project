@@ -16,7 +16,7 @@ export default async function DashboardPage() {
       <Navbar />
       <main className="container mx-auto px-6 py-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">My Projects</h1>
+          <h1 className="text-2xl font-semibold text-foreground">My Projects</h1>
           <CreateProjectButton />
         </div>
 

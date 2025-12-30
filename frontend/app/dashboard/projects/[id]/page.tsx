@@ -5,8 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Navbar } from '@/components/ui/navbar';
 import { UserSync } from '../../user-sync';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ProjectSettingsModal } from './project-settings-modal';
 
 interface Project {
   project_id: string;
@@ -25,6 +26,7 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -124,19 +126,16 @@ export default function ProjectPage() {
       <UserSync />
       <Navbar />
       <main className="container mx-auto px-6 py-6">
-        <div className="mb-6">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
           <Button
-            variant="ghost"
-            onClick={() => router.push('/dashboard')}
-            className="mb-4"
+            variant="default"
+            className="gap-2"
+            onClick={() => setIsSettingsOpen(true)}
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            <Settings className="h-4 w-4" />
+            Settings
           </Button>
-        </div>
-        
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold">{project.name}</h1>
         </div>
 
         {/* Content area - will be added later */}
@@ -144,6 +143,15 @@ export default function ProjectPage() {
           <p className="text-muted-foreground">Project content will be added here.</p>
         </div>
       </main>
+      <ProjectSettingsModal
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        projectId={project.project_id}
+        projectName={project.name}
+        onProjectUpdate={(newName) => {
+          setProject({ ...project, name: newName });
+        }}
+      />
     </div>
   );
 }

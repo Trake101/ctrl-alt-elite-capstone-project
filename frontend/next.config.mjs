@@ -6,8 +6,8 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add empty turbopack config to allow webpack config
-  // Next.js 16 uses Turbopack by default, but we have custom webpack config
+  // Set empty turbopack config to silence warning while using webpack
+  // We use webpack for better Docker file watching support
   turbopack: {},
   // Enable webpack polling for better file watching in Docker (dev only)
   webpack: (config, { dev, isServer, webpack }) => {
@@ -35,11 +35,12 @@ const nextConfig = {
     }
 
     // Enable webpack polling for better file watching in Docker (dev only)
-    if (dev && !isServer) {
+    if (dev) {
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,
         ignored: ["**/node_modules", "**/.git", "**/.next"],
+        followSymlinks: false,
       };
     }
 
