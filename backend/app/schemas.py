@@ -114,3 +114,29 @@ class ProjectUserRoleWithUserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TaskCreate(BaseModel):
+    """Schema for creating a task."""
+    project_id: uuid.UUID
+    project_swim_lane_id: uuid.UUID
+    title: str
+    description: Optional[str] = None
+    assigned_to: Optional[uuid.UUID] = None
+
+
+class TaskResponse(BaseModel):
+    """Schema for task response data."""
+    task_id: uuid.UUID
+    project_id: uuid.UUID
+    project_swim_lane_id: uuid.UUID
+    title: str
+    description: Optional[str] = None
+    assigned_to: Optional[uuid.UUID] = None
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
