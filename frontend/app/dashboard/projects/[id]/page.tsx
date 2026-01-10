@@ -8,7 +8,6 @@ import { UserSync } from '../../user-sync';
 import { Loader2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProjectSettingsModal } from './project-settings-modal';
-
 interface Project {
   project_id: string;
   name: string;
@@ -121,6 +120,8 @@ export default function ProjectPage() {
     );
   }
 
+  let taskCount: number = 1;
+  const swimLaneNames: string[] = ["Backlog", "To Do", "Done"]
   return (
     <div className="min-h-screen bg-background">
       <UserSync />
@@ -137,11 +138,20 @@ export default function ProjectPage() {
             Settings
           </Button>
         </div>
-
-        {/* Content area - will be added later */}
-        <div className="bg-card border rounded-lg p-6">
-          <p className="text-muted-foreground">Project content will be added here.</p>
-        </div>
+          <div className = "flex gap-[20px]">
+          {swimLaneNames.map((lane, index) => (
+          <div className="card border-2 bg-gray-100 shadow-lg border-gray-400 rounded-lg w-[300px] h-[750px] p-3">
+              <p className="font-bold text-xl">{lane}</p>
+              <div className="space-y-3">
+              {Array.from({length: 3}).map((_, index) => (
+              <div className= "card border bg-white border-gray-400 rounded-lg shadow-lg w-[270px] h-[60px]">
+                  <p className="font-sans text-center">Example Task {taskCount++}</p>
+              </div>
+              ))}
+              </div>
+          </div>
+          ))}
+          </div>
       </main>
       <ProjectSettingsModal
         open={isSettingsOpen}
@@ -155,4 +165,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
