@@ -111,6 +111,17 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
       body,
     });
 
+    // Handle responses that should not have a body (204 No Content, 304 Not Modified)
+    if (response.status === 204 || response.status === 304) {
+      return new NextResponse(null, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: {
+          ...Object.fromEntries(response.headers.entries()),
+        },
+      });
+    }
+
     // Get response body
     const responseBody = await response.arrayBuffer();
 

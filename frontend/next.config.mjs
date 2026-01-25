@@ -9,6 +9,16 @@ const nextConfig = {
   // Set empty turbopack config to silence warning while using webpack
   // We use webpack for better Docker file watching support
   turbopack: {},
+  // Allow external images from gravatar
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'www.gravatar.com',
+        pathname: '/avatar/**',
+      },
+    ],
+  },
   // Enable webpack polling for better file watching in Docker (dev only)
   webpack: (config, { dev, isServer, webpack }) => {
     // Always set up path aliases first (before any conditional logic)
