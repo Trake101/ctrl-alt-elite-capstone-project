@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { ProjectSettingsModal } from './project-settings-modal';
 import { CreateTaskModal } from './create-task-modal';
 import { TaskDetailModal } from './task-detail-modal';
+import { CreateTemplateModal } from './create-template-modal';
+import { SaveTemplateModal } from './save-template-modal';
 import { getGravatarUrl } from '@/lib/gravatar';
 
 interface Project {
@@ -66,6 +68,8 @@ export default function ProjectPage() {
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [defaultSwimLaneId, setDefaultSwimLaneId] = useState<string | undefined>(undefined);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -338,6 +342,8 @@ export default function ProjectPage() {
           setProject({ ...project, name: newName });
         }}
         onSwimLanesUpdate={refreshSwimLanes}
+        onCreateTemplate={() => setIsTemplateModalOpen(true)}
+        onSaveTemplate={() => setIsSaveTemplateModalOpen(true)}
       />
       <CreateTaskModal
         open={isCreateTaskOpen}
@@ -354,6 +360,18 @@ export default function ProjectPage() {
         swimLanes={swimLanes}
         users={users}
         onSuccess={refreshTasks}
+      />
+      <CreateTemplateModal
+        open={isTemplateModalOpen}
+        onOpenChange={setIsTemplateModalOpen}
+        projectId={project.project_id}
+        projectName={project.name}
+      />
+      <SaveTemplateModal
+        open={isSaveTemplateModalOpen}
+        onOpenChange={setIsSaveTemplateModalOpen}
+        projectId={project.project_id}
+        projectName={project.name}
       />
     </div>
   );

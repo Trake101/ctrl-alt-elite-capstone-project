@@ -29,6 +29,17 @@ class ProjectCreate(BaseModel):
     name: str
 
 
+class ProjectCreateFromTemplate(BaseModel):
+    """Schema for creating a project from an existing project template."""
+    name: str
+    source_project_id: uuid.UUID
+    include_statuses: bool = True
+    include_roles: bool = True
+    include_users: bool = False
+    include_tasks: bool = False
+    keep_assignees: bool = False
+
+
 class ProjectUpdate(BaseModel):
     """Schema for updating a project."""
     name: Optional[str] = None
@@ -148,3 +159,68 @@ class TaskResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TemplateStatusSchema(BaseModel):
+    """Schema for a status in a template."""
+    name: str
+    order: int
+
+
+class TemplateTaskSchema(BaseModel):
+    """Schema for a task in a template."""
+    title: str
+    description: Optional[str] = None
+    status_order: int  # Maps to the status by order
+    assigned_to: Optional[uuid.UUID] = None
+
+
+class TemplateUserSchema(BaseModel):
+    """Schema for a user assignment in a template."""
+    user_id: uuid.UUID
+    role: str
+
+
+class TemplateCreateFromProject(BaseModel):
+    """Schema for creating a template from an existing project."""
+    name: str
+    description: Optional[str] = None
+    source_project_id: uuid.UUID
+    include_statuses: bool = True
+    include_roles: bool = True
+    include_users: bool = False
+    include_tasks: bool = False
+    keep_assignees: bool = False
+
+
+class TemplateCreate(BaseModel):
+    """Schema for creating a template directly."""
+    name: str
+    description: Optional[str] = None
+    statuses: Optional[List[TemplateStatusSchema]] = None
+    roles: Optional[List[str]] = None
+    tasks: Optional[List[TemplateTaskSchema]] = None
+
+
+class TemplateResponse(BaseModel):
+    """Schema for template response data."""
+    template_id: uuid.UUID
+    name: str
+    description: Optional[str] = None
+    owner_id: uuid.UUID
+    statuses: Optional[List[TemplateStatusSchema]] = None
+    roles: Optional[List[str]] = None
+    users: Optional[List[TemplateUserSchema]] = None
+    tasks: Optional[List[TemplateTaskSchema]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectCreateFromSavedTemplate(BaseModel):
+    """Schema for creating a project from a saved template."""
+    name: str
+    template_id: uuid.UUID
+    keep_assignees: bool = False
