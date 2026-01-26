@@ -125,6 +125,14 @@ class TaskCreate(BaseModel):
     assigned_to: Optional[uuid.UUID] = None
 
 
+class TaskUpdate(BaseModel):
+    """Schema for updating a task."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    project_swim_lane_id: Optional[uuid.UUID] = None
+    assigned_to: Optional[uuid.UUID] = None
+
+
 class TaskResponse(BaseModel):
     """Schema for task response data."""
     task_id: uuid.UUID

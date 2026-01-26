@@ -21,6 +21,7 @@ interface ProjectSettingsModalProps {
   projectId: string;
   projectName: string;
   onProjectUpdate?: (newName: string) => void;
+  onSwimLanesUpdate?: () => void;
 }
 
 export function ProjectSettingsModal({
@@ -29,6 +30,7 @@ export function ProjectSettingsModal({
   projectId,
   projectName,
   onProjectUpdate,
+  onSwimLanesUpdate,
 }: ProjectSettingsModalProps) {
   const { getToken } = useAuth();
   const [name, setName] = useState(projectName);
@@ -436,7 +438,7 @@ export function ProjectSettingsModal({
 
   const handleAddSwimLane = async () => {
     if (!newSwimLaneName.trim()) {
-      setError('Swim lane name is required');
+      setError('Status name is required');
       return;
     }
 
@@ -470,11 +472,12 @@ export function ProjectSettingsModal({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to create swim lane');
+        throw new Error(errorData.detail || 'Failed to create status');
       }
 
       setNewSwimLaneName('');
       await fetchSwimLanes();
+      onSwimLanesUpdate?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -515,12 +518,13 @@ export function ProjectSettingsModal({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to update swim lane');
+        throw new Error(errorData.detail || 'Failed to update status');
       }
 
       setEditingSwimLane(null);
       setEditingSwimLaneValue('');
       await fetchSwimLanes();
+      onSwimLanesUpdate?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -548,10 +552,11 @@ export function ProjectSettingsModal({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to remove swim lane');
+        throw new Error(errorData.detail || 'Failed to remove status');
       }
 
       await fetchSwimLanes();
+      onSwimLanesUpdate?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -607,10 +612,11 @@ export function ProjectSettingsModal({
       const allOk = responses.every(r => r.ok);
 
       if (!allOk) {
-        throw new Error('Failed to reorder swim lanes');
+        throw new Error('Failed to reorder statuses');
       }
 
       await fetchSwimLanes();
+      onSwimLanesUpdate?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -630,7 +636,7 @@ export function ProjectSettingsModal({
         <Tabs defaultValue="general" className="w-full flex-1 flex flex-col overflow-hidden">
           <TabsList className={`grid w-full ${roles.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="swim-lanes">Swim Lanes</TabsTrigger>
+            <TabsTrigger value="statuses">Statuses</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
             {roles.length > 0 && (
               <TabsTrigger value="users">Users</TabsTrigger>
@@ -667,7 +673,7 @@ export function ProjectSettingsModal({
               </div>
             </div>
           </TabsContent>
-          <TabsContent value="swim-lanes" className="mt-4 flex-1 overflow-y-auto">
+          <TabsContent value="statuses" className="mt-4 flex-1 overflow-y-auto">
             <div className="space-y-4">
               {swimLanes.length > 0 && (
                 <div className="space-y-2">
@@ -779,7 +785,7 @@ export function ProjectSettingsModal({
                         handleAddSwimLane();
                       }
                     }}
-                    placeholder="Enter swim lane name"
+                    placeholder="Enter status name"
                     disabled={isLoadingSwimLanes}
                   />
                   <Button
@@ -793,7 +799,7 @@ export function ProjectSettingsModal({
               </div>
 
               {isLoadingSwimLanes && swimLanes.length === 0 && (
-                <p className="text-sm text-muted-foreground">Loading swim lanes...</p>
+                <p className="text-sm text-muted-foreground">Loading statuses...</p>
               )}
 
               {error && (

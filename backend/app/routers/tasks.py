@@ -1,6 +1,6 @@
 """Task-related API endpoints."""
 import uuid
-from typing import Tuple
+from typing import List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user_id
 from ..db import get_db
 from ..models import Project, ProjectSwimLane, Task, User
-from ..schemas import TaskCreate, TaskResponse
+from ..schemas import TaskCreate, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -133,4 +133,139 @@ async def create_task(
     db.refresh(new_task)
 
     return new_task
+
+
+@router.get("/project/{project_id}", response_model=List[TaskResponse])
+async def get_project_tasks(
+    project_id: uuid.UUID,
+    clerk_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all tasks for a project.
+    Requires the user to own the project.
+    Requires a valid Clerk session token in the Authorization header.
+    """
+    # Find the user in our database by clerk_id
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please ensure your user is synced to the database."
+        )
+
+    # Verify project ownership
+    project = db.query(Project).filter(
+        Project.project_id == project_id,
+        Project.owner_id == user.id,
+        Project.deleted_at.is_(None)
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found or you don't have access to it."
+        )
+
+    # Get all tasks for this project that are not deleted
+    tasks = db.query(Task).filter(
+        Task.project_id == project_id,
+        Task.deleted_at.is_(None)
+    ).order_by(Task.created_at).all()
+
+    return tasks
+
+
+@router.put("/{task_id}", response_model=TaskResponse)
+async def update_task(
+    task_id: uuid.UUID,
+    task_data: TaskUpdate,
+    clerk_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """
+    Update an existing task.
+    Requires the user to own the project that the task belongs to.
+    Requires a valid Clerk session token in the Authorization header.
+    """
+    # Find the user in our database by clerk_id
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please ensure your user is synced to the database."
+        )
+
+    # Get the task and verify it exists and is not deleted
+    task = db.query(Task).filter(
+        Task.task_id == task_id,
+        Task.deleted_at.is_(None)
+    ).first()
+
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found."
+        )
+
+    # Verify project ownership
+    project = db.query(Project).filter(
+        Project.project_id == task.project_id,
+        Project.owner_id == user.id,
+        Project.deleted_at.is_(None)
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found or you don't have access to it."
+        )
+
+    # If updating swim lane, verify it belongs to the same project
+    if task_data.project_swim_lane_id is not None:
+        swim_lane = db.query(ProjectSwimLane).filter(
+            ProjectSwimLane.swim_lane_id == task_data.project_swim_lane_id,
+            ProjectSwimLane.project_id == task.project_id,
+            ProjectSwimLane.deleted_at.is_(None)
+        ).first()
+
+        if not swim_lane:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Swim lane not found or does not belong to this project."
+            )
+        task.project_swim_lane_id = task_data.project_swim_lane_id
+
+    # Validate assigned_to if provided
+    if task_data.assigned_to is not None:
+        if task_data.assigned_to:
+            assignee = db.query(User).filter(
+                User.id == task_data.assigned_to,
+                User.deleted_at.is_(None)
+            ).first()
+            if not assignee:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Assigned user not found."
+                )
+        task.assigned_to = task_data.assigned_to if task_data.assigned_to else None
+
+    # Update fields if provided
+    if task_data.title is not None:
+        if not task_data.title.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Title cannot be empty."
+            )
+        task.title = task_data.title.strip()
+
+    if task_data.description is not None:
+        task.description = task_data.description
+
+    db.commit()
+    db.refresh(task)
+
+    return task
 
