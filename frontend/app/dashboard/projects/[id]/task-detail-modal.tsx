@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { FileText, History, MessageSquare } from 'lucide-react';
+import { FileText, History, MessageSquare, Pencil } from 'lucide-react';
+import { getGravatarUrl } from '@/lib/gravatar';
 
 interface SwimLane {
   swim_lane_id: string;
@@ -57,6 +58,7 @@ export function TaskDetailModal({
   onSuccess,
 }: TaskDetailModalProps) {
   const { getToken } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedSwimLaneId, setSelectedSwimLaneId] = useState('');
@@ -74,6 +76,7 @@ export function TaskDetailModal({
       setSelectedUserId(task.assigned_to || '');
       setHasChanges(false);
       setError(null);
+      setIsEditing(false);
     }
   }, [task]);
 
@@ -131,7 +134,7 @@ export function TaskDetailModal({
       }
 
       setHasChanges(false);
-      onOpenChange(false);
+      setIsEditing(false);
 
       if (onSuccess) {
         onSuccess();
@@ -143,8 +146,43 @@ export function TaskDetailModal({
     }
   };
 
+  const handleCancelEdit = () => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description || '');
+      setSelectedSwimLaneId(task.project_swim_lane_id);
+      setSelectedUserId(task.assigned_to || '');
+      setHasChanges(false);
+      setError(null);
+    }
+    setIsEditing(false);
+  };
+
   const handleClose = () => {
     onOpenChange(false);
+  };
+
+  // Helper to get user display name
+  const getUserDisplayName = (userId: string | null) => {
+    if (!userId) return null;
+    const user = users.find(u => u.id === userId);
+    if (!user) return null;
+    return user.first_name && user.last_name
+      ? `${user.first_name} ${user.last_name}`
+      : user.email;
+  };
+
+  // Helper to get user email for gravatar
+  const getUserEmail = (userId: string | null) => {
+    if (!userId) return null;
+    const user = users.find(u => u.id === userId);
+    return user?.email || null;
+  };
+
+  // Helper to get swim lane name
+  const getSwimLaneName = (swimLaneId: string) => {
+    const lane = swimLanes.find(l => l.swim_lane_id === swimLaneId);
+    return lane?.name || 'Unknown';
   };
 
   const formatDate = (dateString: string) => {
@@ -176,104 +214,158 @@ export function TaskDetailModal({
           </TabsList>
 
           <TabsContent value="details" className="mt-4 flex-1 overflow-y-auto">
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <label htmlFor="task-title" className="text-sm font-medium">
-                  Title
-                </label>
-                <Input
-                  id="task-title"
-                  placeholder="Enter task title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <label htmlFor="task-description" className="text-sm font-medium">
-                  Description
-                </label>
-                <Textarea
-                  id="task-description"
-                  placeholder="Enter task description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  disabled={isLoading}
-                  rows={4}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            {isEditing ? (
+              // Edit Mode
+              <div className="space-y-4">
                 <div className="grid gap-2">
-                  <label htmlFor="task-status" className="text-sm font-medium">
-                    Status
+                  <label htmlFor="task-title" className="text-sm font-medium">
+                    Title
                   </label>
-                  <select
-                    id="task-status"
-                    value={selectedSwimLaneId}
-                    onChange={(e) => setSelectedSwimLaneId(e.target.value)}
+                  <Input
+                    id="task-title"
+                    placeholder="Enter task title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                     disabled={isLoading}
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <option value="">Select a status</option>
-                    {swimLanes.map((lane) => (
-                      <option key={lane.swim_lane_id} value={lane.swim_lane_id}>
-                        {lane.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div className="grid gap-2">
-                  <label htmlFor="task-assignee" className="text-sm font-medium">
-                    Assignee
+                  <label htmlFor="task-description" className="text-sm font-medium">
+                    Description
                   </label>
-                  <select
-                    id="task-assignee"
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
+                  <Textarea
+                    id="task-description"
+                    placeholder="Enter task description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     disabled={isLoading}
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    rows={4}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <label htmlFor="task-status" className="text-sm font-medium">
+                      Status
+                    </label>
+                    <select
+                      id="task-status"
+                      value={selectedSwimLaneId}
+                      onChange={(e) => setSelectedSwimLaneId(e.target.value)}
+                      disabled={isLoading}
+                      className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">Select a status</option>
+                      {swimLanes.map((lane) => (
+                        <option key={lane.swim_lane_id} value={lane.swim_lane_id}>
+                          {lane.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label htmlFor="task-assignee" className="text-sm font-medium">
+                      Assign to
+                    </label>
+                    <select
+                      id="task-assignee"
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                      disabled={isLoading}
+                      className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">Unassigned</option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.first_name && user.last_name
+                            ? `${user.first_name} ${user.last_name}`
+                            : user.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )}
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={isLoading}
                   >
-                    <option value="">Unassigned</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.first_name && user.last_name
-                          ? `${user.first_name} ${user.last_name}`
-                          : user.email}
-                      </option>
-                    ))}
-                  </select>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={isLoading || !hasChanges}
+                  >
+                    {isLoading ? 'Saving...' : 'Save Changes'}
+                  </Button>
                 </div>
               </div>
+            ) : (
+              // View Mode
+              <div className="space-y-6">
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="gap-2"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </div>
 
-              <div className="text-xs text-muted-foreground pt-4 border-t">
-                <p>Created: {formatDate(task.created_at)}</p>
-                <p>Updated: {formatDate(task.updated_at)}</p>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {task.description || <span className="text-muted-foreground italic">No description</span>}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
+                      <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-sm">
+                        {getSwimLaneName(task.project_swim_lane_id)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Assigned to</h3>
+                      {task.assigned_to ? (
+                        <div className="flex items-center gap-2">
+                          {getUserEmail(task.assigned_to) && (
+                            <img
+                              src={getGravatarUrl(getUserEmail(task.assigned_to)!, 24)}
+                              alt=""
+                              className="w-6 h-6 rounded-full"
+                            />
+                          )}
+                          <span className="text-sm">{getUserDisplayName(task.assigned_to)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground italic">Unassigned</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground pt-4 border-t">
+                    <p>Created: {formatDate(task.created_at)}</p>
+                    <p>Updated: {formatDate(task.updated_at)}</p>
+                  </div>
+                </div>
               </div>
-
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClose}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSave}
-                  disabled={isLoading || !hasChanges}
-                >
-                  {isLoading ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </div>
+            )}
           </TabsContent>
 
           <TabsContent value="notes" className="mt-4 flex-1 overflow-y-auto">

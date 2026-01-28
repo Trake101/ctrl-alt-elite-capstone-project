@@ -67,3 +67,19 @@ class Task(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)  # pylint: disable=not-callable
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)  # pylint: disable=not-callable
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ProjectTemplate(Base):
+    """ProjectTemplate model for storing reusable project templates."""
+    __tablename__ = "project_templates"
+    template_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    statuses = Column(JSONB, nullable=True)  # [{name: string, order: int}]
+    roles = Column(JSONB, nullable=True)  # [string]
+    users = Column(JSONB, nullable=True)  # [{user_id: uuid, role: string}]
+    tasks = Column(JSONB, nullable=True)  # [{title: string, description: string, status_order: int, assigned_to: uuid}]
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)  # pylint: disable=not-callable
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)  # pylint: disable=not-callable
+    deleted_at = Column(DateTime(timezone=True), nullable=True)

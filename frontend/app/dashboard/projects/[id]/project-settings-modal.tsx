@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Pencil, Trash2, Plus, X, ChevronUp, ChevronDown, Check } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Pencil, Trash2, Plus, X, ChevronUp, ChevronDown, Check, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,8 @@ interface ProjectSettingsModalProps {
   projectName: string;
   onProjectUpdate?: (newName: string) => void;
   onSwimLanesUpdate?: () => void;
+  onCreateTemplate?: () => void;
+  onSaveTemplate?: () => void;
 }
 
 export function ProjectSettingsModal({
@@ -31,9 +34,15 @@ export function ProjectSettingsModal({
   projectName,
   onProjectUpdate,
   onSwimLanesUpdate,
+  onCreateTemplate,
+  onSaveTemplate,
 }: ProjectSettingsModalProps) {
   const { getToken } = useAuth();
+  const router = useRouter();
   const [name, setName] = useState(projectName);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [roles, setRoles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
@@ -150,6 +159,41 @@ export function ProjectSettingsModal({
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleteConfirmText !== projectName) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const token = await getToken({ skipCache: true });
+
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to delete project');
+      }
+
+      // Close modal and redirect to dashboard
+      onOpenChange(false);
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      setIsDeleting(false);
     }
   };
 
@@ -670,6 +714,84 @@ export function ProjectSettingsModal({
                 >
                   {isLoading ? 'Saving...' : 'Save'}
                 </Button>
+              </div>
+
+              <div className="pt-6 mt-6 border-t">
+                <h3 className="text-sm font-medium mb-2">Templates</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Clone this project or save it as a reusable template.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onCreateTemplate?.();
+                    }}
+                  >
+                    Clone Project
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onSaveTemplate?.();
+                    }}
+                  >
+                    Save as Template
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-destructive/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <h3 className="text-sm font-medium text-destructive">Danger Zone</h3>
+                </div>
+                {!showDeleteConfirm ? (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Once you delete a project, there is no going back.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      Delete Project
+                    </Button>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      To confirm, type <span className="font-semibold">{projectName}</span> below:
+                    </p>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="Enter project name to confirm"
+                      disabled={isDeleting}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowDeleteConfirm(false);
+                          setDeleteConfirmText('');
+                        }}
+                        disabled={isDeleting}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handleDelete}
+                        disabled={deleteConfirmText !== projectName || isDeleting}
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete Project'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </TabsContent>
