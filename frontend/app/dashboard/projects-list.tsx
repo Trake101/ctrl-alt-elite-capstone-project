@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { Loader2, CalendarIcon, MoreVertical, Copy, Trash2, Users, ListChecks } from 'lucide-react';
+import { Loader2, CalendarIcon, MoreVertical, Copy, Trash2, Users } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -42,12 +41,21 @@ interface DashboardMember {
   last_name: string | null;
 }
 
+interface SwimLaneTaskCount {
+  name: string;
+  order: number;
+  count: number;
+}
+
 interface ProjectStats {
   project_id: string;
   task_count: number;
   member_count: number;
   members: DashboardMember[];
+  task_breakdown: SwimLaneTaskCount[];
 }
+
+const LANE_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
 function formatDistanceToNow(date: Date): string {
   const now = new Date();
@@ -296,13 +304,40 @@ export function ProjectsList() {
               </div>
             </CardHeader>
             {stats && (
-              <CardContent className="pt-0 pb-3">
+              <CardContent className="pt-0 pb-3 space-y-2">
+                {/* Progress bar */}
+                {stats.task_count > 0 && stats.task_breakdown.length > 0 && (
+                  <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+                    {stats.task_breakdown
+                      .filter((lane) => lane.count > 0)
+                      .map((lane, i) => (
+                        <div
+                          key={lane.name}
+                          style={{
+                            width: `${(lane.count / stats.task_count) * 100}%`,
+                            backgroundColor: LANE_COLORS[lane.order % LANE_COLORS.length],
+                          }}
+                          title={`${lane.name}: ${lane.count}`}
+                        />
+                      ))}
+                  </div>
+                )}
+                {/* Status breakdown + members row */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <ListChecks className="size-3" />
-                      {stats.task_count} {stats.task_count === 1 ? 'task' : 'tasks'}
-                    </Badge>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {stats.task_breakdown.length > 0 ? (
+                      stats.task_breakdown.map((lane) => (
+                        <span key={lane.name} className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span
+                            className="inline-block size-2 rounded-full"
+                            style={{ backgroundColor: LANE_COLORS[lane.order % LANE_COLORS.length] }}
+                          />
+                          {lane.count} {lane.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No statuses</span>
+                    )}
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Users className="size-3" />
                       {stats.member_count}

@@ -226,6 +226,13 @@ class ProjectCreateFromSavedTemplate(BaseModel):
     keep_assignees: bool = False
 
 
+class SwimLaneTaskCount(BaseModel):
+    """Task count for a single swim lane."""
+    name: str
+    order: int
+    count: int
+
+
 class DashboardMember(BaseModel):
     """Lightweight user representation for dashboard avatar stacks."""
     user_id: uuid.UUID
@@ -240,6 +247,7 @@ class ProjectStats(BaseModel):
     task_count: int
     member_count: int
     members: List[DashboardMember]
+    task_breakdown: List[SwimLaneTaskCount] = []
 
 
 class DashboardStatsResponse(BaseModel):

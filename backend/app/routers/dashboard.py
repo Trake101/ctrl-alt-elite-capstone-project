@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user_id
 from ..db import get_db
-from ..models import Project, ProjectUserRole, Task, User
-from ..schemas import DashboardMember, DashboardStatsResponse, ProjectStats
+from ..models import Project, ProjectSwimLane, ProjectUserRole, Task, User
+from ..schemas import DashboardMember, DashboardStatsResponse, ProjectStats, SwimLaneTaskCount
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -60,6 +60,32 @@ async def get_dashboard_stats(
 
     task_counts = {row[0]: row[1] for row in task_counts_rows}
 
+    # Batch query: task counts per (project, swim lane)
+    lane_task_rows = db.query(
+        Task.project_id,
+        Task.project_swim_lane_id,
+        func.count(Task.task_id),
+    ).filter(
+        Task.project_id.in_(project_ids),
+        Task.deleted_at.is_(None),
+    ).group_by(Task.project_id, Task.project_swim_lane_id).all()
+
+    # lane_task_counts: {project_id: {swim_lane_id: count}}
+    lane_task_counts: dict = defaultdict(dict)
+    for pid, lane_id, cnt in lane_task_rows:
+        lane_task_counts[pid][lane_id] = cnt
+
+    # Batch query: all swim lanes for user's projects
+    swim_lanes = db.query(ProjectSwimLane).filter(
+        ProjectSwimLane.project_id.in_(project_ids),
+        ProjectSwimLane.deleted_at.is_(None),
+    ).order_by(ProjectSwimLane.order).all()
+
+    # swim_lanes_by_project: {project_id: [(swim_lane_id, name, order)]}
+    swim_lanes_by_project: dict = defaultdict(list)
+    for lane in swim_lanes:
+        swim_lanes_by_project[lane.project_id].append(lane)
+
     # Batch query: members from project_user_roles
     role_members = db.query(
         ProjectUserRole.project_id,
@@ -100,11 +126,20 @@ async def get_dashboard_stats(
     result: List[ProjectStats] = []
     for pid in project_ids:
         members = list(members_by_project.get(pid, {}).values())
+        # Build task breakdown per swim lane (include lanes with 0 tasks)
+        breakdown = []
+        for lane in swim_lanes_by_project.get(pid, []):
+            breakdown.append(SwimLaneTaskCount(
+                name=lane.name,
+                order=lane.order,
+                count=lane_task_counts.get(pid, {}).get(lane.swim_lane_id, 0),
+            ))
         result.append(ProjectStats(
             project_id=pid,
             task_count=task_counts.get(pid, 0),
             member_count=len(members),
             members=members[:5],
+            task_breakdown=breakdown,
         ))
 
     return DashboardStatsResponse(projects=result)
