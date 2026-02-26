@@ -328,11 +328,11 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] h-[80vh] max-h-[700px] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-[600px] h-[80vh] max-h-[700px] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="pr-8 truncate">{task.title}</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="details" className="w-full flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details" className="gap-2">
               <FileText className="h-4 w-4" />
@@ -348,7 +348,7 @@ export function TaskDetailModal({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="details" className="mt-4 flex-1 overflow-y-auto min-h-0">
+          <TabsContent value="details" className="mt-4 overflow-y-auto max-h-[calc(80vh-12rem)]">
             {isEditing ? (
               // Edit Mode
               <div className="space-y-4">
@@ -503,7 +503,7 @@ export function TaskDetailModal({
             )}
           </TabsContent>
 
-          <TabsContent value="notes" className="mt-4 flex-1 flex flex-col overflow-hidden">
+          <TabsContent value="notes" className="mt-4 flex flex-col overflow-hidden max-h-[calc(80vh-12rem)]">
             {/* Comments list */}
             <div className="flex-1 overflow-y-auto space-y-3">
               {isLoadingComments ? (
@@ -576,7 +576,7 @@ export function TaskDetailModal({
             </div>
           </TabsContent>
 
-          <TabsContent value="history" className="mt-4 flex-1 overflow-y-auto min-h-0">
+          <TabsContent value="history" className="mt-4 overflow-y-auto max-h-[calc(80vh-12rem)]">
             {isLoadingActivity ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
