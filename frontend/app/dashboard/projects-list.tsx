@@ -306,7 +306,7 @@ export function ProjectsList() {
             {stats && (
               <CardContent className="pt-0 pb-3 space-y-2">
                 {/* Progress bar */}
-                {stats.task_count > 0 && stats.task_breakdown.length > 0 && (
+                {stats.task_count > 0 && stats.task_breakdown?.length > 0 && (
                   <div className="flex h-2 rounded-full overflow-hidden bg-muted">
                     {stats.task_breakdown
                       .filter((lane) => lane.count > 0)
@@ -325,7 +325,7 @@ export function ProjectsList() {
                 {/* Status breakdown + members row */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-wrap">
-                    {stats.task_breakdown.length > 0 ? (
+                    {stats.task_breakdown?.length > 0 ? (
                       stats.task_breakdown.map((lane) => (
                         <span key={lane.name} className="flex items-center gap-1 text-xs text-muted-foreground">
                           <span
