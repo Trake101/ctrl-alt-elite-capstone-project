@@ -95,6 +95,7 @@ async def create_swim_lane(
     )
 
     db.add(new_swim_lane)
+    db.flush()
     log_activity(
         db, "swim_lane", new_swim_lane.swim_lane_id, "created",
         f"Created swim lane '{new_swim_lane.name}'",

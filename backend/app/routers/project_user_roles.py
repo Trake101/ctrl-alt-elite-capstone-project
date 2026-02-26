@@ -155,6 +155,7 @@ async def create_project_user_role(
     )
 
     db.add(new_user_role)
+    db.flush()
 
     owner = db.query(User).filter(User.clerk_id == clerk_user_id).first()
     log_activity(

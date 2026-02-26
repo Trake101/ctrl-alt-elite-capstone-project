@@ -143,6 +143,7 @@ async def create_template_from_project(
     )
 
     db.add(new_template)
+    db.flush()
     log_activity(
         db, "template", new_template.template_id, "created",
         f"Created template '{new_template.name}' from project '{source_project.name}'",

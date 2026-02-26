@@ -131,6 +131,7 @@ async def create_task(
     )
 
     db.add(new_task)
+    db.flush()
     log_activity(
         db, "task", new_task.task_id, "created",
         f"Created task '{new_task.title}'",
