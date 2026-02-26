@@ -293,7 +293,7 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-[600px] h-[80vh] max-h-[700px] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="pr-8 truncate">{task.title}</DialogTitle>
         </DialogHeader>

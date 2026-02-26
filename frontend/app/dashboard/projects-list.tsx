@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { getGravatarUrl } from '@/lib/gravatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -307,36 +308,34 @@ export function ProjectsList() {
               <CardContent className="pt-0 pb-3 space-y-2">
                 {/* Progress bar */}
                 {stats.task_count > 0 && stats.task_breakdown?.length > 0 && (
-                  <div className="flex h-2 rounded-full overflow-hidden bg-muted">
-                    {stats.task_breakdown
-                      .filter((lane) => lane.count > 0)
-                      .map((lane, i) => (
-                        <div
-                          key={lane.name}
-                          style={{
-                            width: `${(lane.count / stats.task_count) * 100}%`,
-                            backgroundColor: LANE_COLORS[lane.order % LANE_COLORS.length],
-                          }}
-                          title={`${lane.name}: ${lane.count}`}
-                        />
-                      ))}
-                  </div>
+                  <TooltipProvider delayDuration={0}>
+                    <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+                      {stats.task_breakdown
+                        .filter((lane) => lane.count > 0)
+                        .map((lane) => (
+                          <Tooltip key={lane.name}>
+                            <TooltipTrigger asChild>
+                              <div
+                                style={{
+                                  width: `${(lane.count / stats.task_count) * 100}%`,
+                                  backgroundColor: LANE_COLORS[lane.order % LANE_COLORS.length],
+                                }}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {lane.name}: {lane.count}
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                    </div>
+                  </TooltipProvider>
                 )}
-                {/* Status breakdown + members row */}
+                {/* Task count + members row */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-3">
                     <span className="text-xs font-medium text-muted-foreground">
                       {stats.task_count} {stats.task_count === 1 ? 'task' : 'tasks'}
                     </span>
-                    {stats.task_breakdown?.filter((l) => l.count > 0).map((lane) => (
-                      <span key={lane.name} className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <span
-                          className="inline-block size-2 rounded-full"
-                          style={{ backgroundColor: LANE_COLORS[lane.order % LANE_COLORS.length] }}
-                        />
-                        {lane.count} {lane.name}
-                      </span>
-                    ))}
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Users className="size-3" />
                       {stats.member_count}

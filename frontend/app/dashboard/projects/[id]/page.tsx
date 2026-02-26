@@ -6,7 +6,8 @@ import { useAuth } from '@clerk/nextjs';
 import Image from 'next/image';
 import { Navbar } from '@/components/ui/navbar';
 import { UserSync } from '../../user-sync';
-import { Loader2, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Settings } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ProjectSettingsModal } from './project-settings-modal';
 import { CreateTaskModal } from './create-task-modal';
@@ -259,6 +260,13 @@ export default function ProjectPage() {
       <UserSync />
       <Navbar />
       <main className="container mx-auto px-6 py-6">
+        <Link
+          href="/dashboard"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
           <div className="flex gap-2">
