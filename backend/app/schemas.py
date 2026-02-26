@@ -269,6 +269,24 @@ class MyTaskResponse(BaseModel):
     updated_at: datetime
 
 
+class CommentCreate(BaseModel):
+    """Schema for creating a comment."""
+    comment: str
+
+
+class CommentResponse(BaseModel):
+    """Schema for comment response data with creator info."""
+    comment_id: uuid.UUID
+    task_id: uuid.UUID
+    created_by: uuid.UUID
+    comment: str
+    created_at: datetime
+    updated_at: datetime
+    creator_email: str
+    creator_first_name: Optional[str] = None
+    creator_last_name: Optional[str] = None
+
+
 class ActivityLogResponse(BaseModel):
     """Schema for activity log response data."""
     activity_log_id: uuid.UUID

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth, useUser } from '@clerk/nextjs';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { FileText, History, MessageSquare, Pencil } from 'lucide-react';
+import { FileText, History, Loader2, MessageSquare, Pencil, Send, Trash2 } from 'lucide-react';
 import { getGravatarUrl } from '@/lib/gravatar';
 
 interface SwimLane {
@@ -40,6 +40,29 @@ interface Task {
   updated_at: string;
 }
 
+interface CommentData {
+  comment_id: string;
+  task_id: string;
+  created_by: string;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+  creator_email: string;
+  creator_first_name: string | null;
+  creator_last_name: string | null;
+}
+
+function formatTimeAgo(dateString: string): string {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (diffInSeconds < 60) return 'just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  return date.toLocaleDateString();
+}
+
 interface TaskDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -58,6 +81,7 @@ export function TaskDetailModal({
   onSuccess,
 }: TaskDetailModalProps) {
   const { getToken } = useAuth();
+  const { user: clerkUser } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -66,6 +90,30 @@ export function TaskDetailModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Comments state
+  const [comments, setComments] = useState<CommentData[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  const fetchComments = useCallback(async (taskId: string) => {
+    setIsLoadingComments(true);
+    try {
+      const token = await getToken({ skipCache: true });
+      if (!token) return;
+      const res = await fetch(`/api/tasks/${taskId}/comments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setComments(await res.json());
+      }
+    } catch {
+      // silently fail — comments are non-critical
+    } finally {
+      setIsLoadingComments(false);
+    }
+  }, [getToken]);
 
   // Reset form when task changes
   useEffect(() => {
@@ -77,8 +125,11 @@ export function TaskDetailModal({
       setHasChanges(false);
       setError(null);
       setIsEditing(false);
+      fetchComments(task.task_id);
+    } else {
+      setComments([]);
     }
-  }, [task]);
+  }, [task, fetchComments]);
 
   // Track changes
   useEffect(() => {
@@ -161,6 +212,55 @@ export function TaskDetailModal({
   const handleClose = () => {
     onOpenChange(false);
   };
+
+  const handleSubmitComment = async () => {
+    if (!task || !newComment.trim()) return;
+    setIsSubmittingComment(true);
+    try {
+      const token = await getToken({ skipCache: true });
+      if (!token) return;
+      const res = await fetch(`/api/tasks/${task.task_id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ comment: newComment.trim() }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setComments((prev) => [created, ...prev]);
+        setNewComment('');
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const token = await getToken({ skipCache: true });
+      if (!token) return;
+      const res = await fetch(`/api/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setComments((prev) => prev.filter((c) => c.comment_id !== commentId));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Find current user's DB id from the users prop (matched by clerk id)
+  const currentDbUser = users.find((u) => {
+    if (!clerkUser) return false;
+    // Match by email since we have clerkUser.primaryEmailAddress
+    return u.email === clerkUser.primaryEmailAddress?.emailAddress;
+  });
 
   // Helper to get user display name
   const getUserDisplayName = (userId: string | null) => {
@@ -368,16 +468,76 @@ export function TaskDetailModal({
             )}
           </TabsContent>
 
-          <TabsContent value="notes" className="mt-4 flex-1 overflow-y-auto">
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <h3 className="font-medium text-lg mb-2">Notes</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Add notes and comments to this task to keep track of discussions and decisions.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Coming soon
-              </p>
+          <TabsContent value="notes" className="mt-4 flex-1 flex flex-col overflow-hidden">
+            {/* Comment input */}
+            <div className="flex gap-2 mb-3">
+              <Textarea
+                placeholder="Add a note..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                disabled={isSubmittingComment}
+                rows={2}
+                className="resize-none text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleSubmitComment();
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={handleSubmitComment}
+                disabled={!newComment.trim() || isSubmittingComment}
+                className="self-end"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Comments list */}
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {isLoadingComments ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : comments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <MessageSquare className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <p className="text-sm text-muted-foreground">No notes yet. Add one above.</p>
+                </div>
+              ) : (
+                comments.map((c) => (
+                  <div key={c.comment_id} className="flex gap-3 group">
+                    <img
+                      src={getGravatarUrl(c.creator_email, 32)}
+                      alt=""
+                      className="w-8 h-8 rounded-full mt-0.5 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">
+                          {c.creator_first_name && c.creator_last_name
+                            ? `${c.creator_first_name} ${c.creator_last_name}`
+                            : c.creator_email}
+                        </span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {formatTimeAgo(c.created_at)}
+                        </span>
+                        {currentDbUser && c.created_by === currentDbUser.id && (
+                          <button
+                            onClick={() => handleDeleteComment(c.comment_id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap break-words">{c.comment}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </TabsContent>
 
