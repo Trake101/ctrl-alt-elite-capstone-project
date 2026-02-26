@@ -112,6 +112,30 @@ class Task(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 
+class ActivityLog(Base):
+    """ActivityLog model representing an activity event in the system."""
+    __tablename__ = "activity_logs"
+
+    activity_log_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+
+    object_type = Column(String(255), nullable=False)
+    object_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+
+    action = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+
+    metadata = Column(JSONB, nullable=True)
+
+    action_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)  # pylint: disable=not-callable
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)  # pylint: disable=not-callable
+    
 class Comment(Base):
     """Comment model representing a comment on a task."""
     __tablename__ = "comments"
