@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..activity import log_activity
 from ..auth import get_current_user_id
 from ..db import get_db
 from ..models import Project, ProjectSwimLane, ProjectTemplate, ProjectUserRole, Task, User
@@ -142,6 +143,12 @@ async def create_template_from_project(
     )
 
     db.add(new_template)
+    log_activity(
+        db, "template", new_template.template_id, "created",
+        f"Created template '{new_template.name}' from project '{source_project.name}'",
+        user.id,
+        {"project_id": str(source_project.project_id), "template_id": str(new_template.template_id)},
+    )
     db.commit()
     db.refresh(new_template)
 
@@ -181,6 +188,12 @@ async def delete_template(
     # Soft delete
     from datetime import datetime, timezone
     template.deleted_at = datetime.now(timezone.utc)
+    log_activity(
+        db, "template", template.template_id, "deleted",
+        f"Deleted template '{template.name}'",
+        user.id,
+        {"template_id": str(template.template_id)},
+    )
     db.commit()
 
 
@@ -306,6 +319,12 @@ async def create_project_from_saved_template(
             )
             db.add(new_task)
 
+    log_activity(
+        db, "project", new_project.project_id, "created",
+        f"Created project '{new_project.name}' from template '{template.name}'",
+        user.id,
+        {"project_id": str(new_project.project_id), "template_id": str(template.template_id)},
+    )
     db.commit()
     db.refresh(new_project)
 

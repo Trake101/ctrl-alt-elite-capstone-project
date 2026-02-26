@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, List
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 class UserCreate(BaseModel):
     """Schema for creating or updating a user."""
@@ -224,3 +224,53 @@ class ProjectCreateFromSavedTemplate(BaseModel):
     name: str
     template_id: uuid.UUID
     keep_assignees: bool = False
+
+
+class DashboardMember(BaseModel):
+    """Lightweight user representation for dashboard avatar stacks."""
+    user_id: uuid.UUID
+    email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class ProjectStats(BaseModel):
+    """Per-project stats for the dashboard."""
+    project_id: uuid.UUID
+    task_count: int
+    member_count: int
+    members: List[DashboardMember]
+
+
+class DashboardStatsResponse(BaseModel):
+    """Aggregated dashboard stats for all user projects."""
+    projects: List[ProjectStats]
+
+
+class MyTaskResponse(BaseModel):
+    """Task with project name for cross-project assigned tasks view."""
+    task_id: uuid.UUID
+    project_id: uuid.UUID
+    project_name: str
+    project_swim_lane_id: uuid.UUID
+    title: str
+    description: Optional[str] = None
+    assigned_to: Optional[uuid.UUID] = None
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class ActivityLogResponse(BaseModel):
+    """Schema for activity log response data."""
+    activity_log_id: uuid.UUID
+    object_type: str
+    object_id: uuid.UUID
+    action: str
+    description: str
+    metadata: Optional[dict] = Field(default=None, validation_alias="extra_data")
+    action_by: Optional[uuid.UUID] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

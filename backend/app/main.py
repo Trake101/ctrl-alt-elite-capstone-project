@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
-from .routers import projects, project_user_roles, swim_lanes, tasks, templates, users
+from .routers import activity_logs, dashboard, projects, project_user_roles, swim_lanes, tasks, templates, users
 
 # Load environment variables from .env file
 # This is safe to call multiple times, and will only load if file exists
@@ -34,3 +34,5 @@ app.include_router(project_user_roles.router)
 app.include_router(swim_lanes.router)
 app.include_router(tasks.router)
 app.include_router(templates.router)
+app.include_router(activity_logs.router)
+app.include_router(dashboard.router)

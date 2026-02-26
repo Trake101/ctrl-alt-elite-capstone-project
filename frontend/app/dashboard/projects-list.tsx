@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { Loader2, CalendarIcon, MoreVertical, Copy, Trash2 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Loader2, CalendarIcon, MoreVertical, Copy, Trash2, Users, ListChecks } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getGravatarUrl } from '@/lib/gravatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +35,20 @@ interface Project {
   updated_at: string;
 }
 
+interface DashboardMember {
+  user_id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+interface ProjectStats {
+  project_id: string;
+  task_count: number;
+  member_count: number;
+  members: DashboardMember[];
+}
+
 function formatDistanceToNow(date: Date): string {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -49,6 +65,7 @@ export function ProjectsList() {
   const { getToken } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [statsMap, setStatsMap] = useState<Record<string, ProjectStats>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,20 +97,29 @@ export function ProjectsList() {
         throw new Error('No authentication token available');
       }
 
-      const response = await fetch('/api/projects', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const headers = { 'Authorization': `Bearer ${token}` };
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      const [projectsRes, statsRes] = await Promise.all([
+        fetch('/api/projects', { method: 'GET', headers }),
+        fetch('/api/dashboard/stats', { method: 'GET', headers }),
+      ]);
+
+      if (!projectsRes.ok) {
+        const errorData = await projectsRes.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Failed to fetch projects');
       }
 
-      const data = await response.json();
+      const data = await projectsRes.json();
       setProjects(data);
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        const map: Record<string, ProjectStats> = {};
+        for (const s of statsData.projects) {
+          map[s.project_id] = s;
+        }
+        setStatsMap(map);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -242,10 +268,11 @@ export function ProjectsList() {
           hour: '2-digit',
           minute: '2-digit',
         });
+        const stats = statsMap[project.project_id];
 
         return (
-          <Card 
-            key={project.project_id} 
+          <Card
+            key={project.project_id}
             className="hover:shadow-md transition-shadow"
           >
             <CardHeader className="items-start flex-col gap-y-2 gap-x-4 sm:flex-row">
@@ -268,6 +295,46 @@ export function ProjectsList() {
                 </span>
               </div>
             </CardHeader>
+            {stats && (
+              <CardContent className="pt-0 pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <ListChecks className="size-3" />
+                      {stats.task_count} {stats.task_count === 1 ? 'task' : 'tasks'}
+                    </Badge>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Users className="size-3" />
+                      {stats.member_count}
+                    </span>
+                  </div>
+                  {stats.members.length > 0 && (
+                    <div className="flex -space-x-2">
+                      {stats.members.slice(0, 3).map((member) => (
+                        <img
+                          key={member.user_id}
+                          src={getGravatarUrl(member.email, 28)}
+                          alt={member.first_name || member.email}
+                          width={28}
+                          height={28}
+                          className="rounded-full border-2 border-card"
+                          title={
+                            member.first_name && member.last_name
+                              ? `${member.first_name} ${member.last_name}`
+                              : member.email
+                          }
+                        />
+                      ))}
+                      {stats.member_count > 3 && (
+                        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-muted text-xs font-medium border-2 border-card">
+                          +{stats.member_count - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            )}
             <CardFooter>
               <div className="flex gap-x-2 items-center justify-between w-full">
                 <div className="space-x-2">

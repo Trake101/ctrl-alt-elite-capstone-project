@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..activity import log_activity
 from ..auth import get_current_user_id
 from ..db import get_db
 from ..models import Project, ProjectUserRole, User
@@ -154,6 +155,14 @@ async def create_project_user_role(
     )
 
     db.add(new_user_role)
+
+    owner = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    log_activity(
+        db, "user_role", new_user_role.id, "created",
+        f"Added user to project with role '{new_user_role.role}'",
+        owner.id,
+        {"project_id": str(project_id), "user_id": str(user_role_data.user_id), "role": new_user_role.role},
+    )
     db.commit()
     db.refresh(new_user_role)
 
@@ -213,6 +222,13 @@ async def update_project_user_role(
 
         user_role.role = user_role_data.role
 
+    owner = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    log_activity(
+        db, "user_role", user_role.id, "updated",
+        f"Updated user role to '{user_role.role}'",
+        owner.id,
+        {"project_id": str(project_id), "user_id": str(user_role.user_id), "role": user_role.role},
+    )
     db.commit()
     db.refresh(user_role)
 
@@ -250,6 +266,13 @@ async def delete_project_user_role(
     from datetime import datetime, timezone
     user_role.deleted_at = datetime.now(timezone.utc)
 
+    owner = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    log_activity(
+        db, "user_role", user_role.id, "deleted",
+        f"Removed user from project (role: '{user_role.role}')",
+        owner.id,
+        {"project_id": str(project_id), "user_id": str(user_role.user_id), "role": user_role.role},
+    )
     db.commit()
 
     return None

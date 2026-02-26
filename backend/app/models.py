@@ -140,7 +140,7 @@ class ActivityLog(Base):
     action = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
 
-    metadata = Column(JSONB, nullable=True)
+    extra_data = Column("metadata", JSONB, nullable=True)
 
     action_by = Column(
         UUID(as_uuid=True),

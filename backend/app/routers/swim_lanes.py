@@ -6,6 +6,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..activity import log_activity
 from ..auth import get_current_user_id
 from ..db import get_db
 from ..models import Project, ProjectSwimLane, User
@@ -82,8 +83,9 @@ async def create_swim_lane(
     Requires the user to own the project.
     Requires a valid Clerk session token in the Authorization header.
     """
-    # Verify project ownership
-    project = verify_project_ownership(swim_lane_data.project_id, clerk_user_id, db)
+    # Find user and verify project ownership
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    verify_project_ownership(swim_lane_data.project_id, clerk_user_id, db)
 
     # Create the new swim lane
     new_swim_lane = ProjectSwimLane(
@@ -93,6 +95,12 @@ async def create_swim_lane(
     )
 
     db.add(new_swim_lane)
+    log_activity(
+        db, "swim_lane", new_swim_lane.swim_lane_id, "created",
+        f"Created swim lane '{new_swim_lane.name}'",
+        user.id,
+        {"project_id": str(swim_lane_data.project_id)},
+    )
     db.commit()
     db.refresh(new_swim_lane)
 
@@ -151,6 +159,12 @@ async def update_swim_lane(
     if swim_lane_data.order is not None:
         swim_lane.order = swim_lane_data.order
 
+    log_activity(
+        db, "swim_lane", swim_lane.swim_lane_id, "updated",
+        f"Updated swim lane '{swim_lane.name}'",
+        user.id,
+        {"project_id": str(swim_lane.project_id)},
+    )
     db.commit()
     db.refresh(swim_lane)
 
@@ -204,6 +218,12 @@ async def delete_swim_lane(
 
     # Soft delete by setting deleted_at
     swim_lane.deleted_at = datetime.now(timezone.utc)
+    log_activity(
+        db, "swim_lane", swim_lane.swim_lane_id, "deleted",
+        f"Deleted swim lane '{swim_lane.name}'",
+        user.id,
+        {"project_id": str(swim_lane.project_id)},
+    )
     db.commit()
 
     return None

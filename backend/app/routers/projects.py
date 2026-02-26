@@ -3,10 +3,12 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user_id
 from ..db import get_db
+from ..activity import log_activity
 from ..models import Project, ProjectSwimLane, ProjectUserRole, Task, User
 from ..schemas import ProjectCreate, ProjectCreateFromTemplate, ProjectResponse, ProjectUpdate
 
@@ -33,10 +35,17 @@ async def get_project(
             detail="User not found. Please ensure your user is synced to the database."
         )
 
-    # Get the project and verify ownership
+    # Get the project and verify ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == project_id,
-        Project.owner_id == user.id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
         Project.deleted_at.is_(None)
     ).first()
 
@@ -88,6 +97,12 @@ async def update_project(
     for field, value in update_data.items():
         setattr(project, field, value)
 
+    log_activity(
+        db, "project", project.project_id, "updated",
+        f"Updated project '{project.name}'",
+        user.id,
+        {"project_id": str(project.project_id), "updated_fields": list(update_data.keys())},
+    )
     db.commit()
     db.refresh(project)
 
@@ -112,9 +127,16 @@ async def get_user_projects(
             detail="User not found. Please ensure your user is synced to the database."
         )
 
-    # Get all projects owned by this user (excluding soft-deleted)
+    # Get all projects owned by or shared with this user (excluding soft-deleted)
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     projects = db.query(Project).filter(
-        Project.owner_id == user.id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
         Project.deleted_at.is_(None)
     ).order_by(Project.created_at.desc()).all()
 
@@ -147,8 +169,7 @@ async def create_project(
     )
 
     db.add(new_project)
-    db.commit()
-    db.refresh(new_project)
+    db.flush()
 
     # Create default swim lanes: Backlog, To Do, and Done
     default_swim_lanes = [
@@ -158,7 +179,14 @@ async def create_project(
     ]
 
     db.add_all(default_swim_lanes)
+    log_activity(
+        db, "project", new_project.project_id, "created",
+        f"Created project '{new_project.name}'",
+        user.id,
+        {"project_id": str(new_project.project_id)},
+    )
     db.commit()
+    db.refresh(new_project)
 
     return new_project
 
@@ -290,6 +318,12 @@ async def create_project_from_template(
             )
             db.add(new_task)
 
+    log_activity(
+        db, "project", new_project.project_id, "cloned",
+        f"Cloned project '{source_project.name}' as '{new_project.name}'",
+        user.id,
+        {"project_id": str(new_project.project_id), "source_project_id": str(source_project.project_id)},
+    )
     db.commit()
     db.refresh(new_project)
 
@@ -333,4 +367,10 @@ async def delete_project(
 
     # Soft delete
     project.deleted_at = datetime.now(timezone.utc)
+    log_activity(
+        db, "project", project.project_id, "deleted",
+        f"Deleted project '{project.name}'",
+        user.id,
+        {"project_id": str(project.project_id)},
+    )
     db.commit()
