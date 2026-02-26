@@ -293,11 +293,11 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="pr-8 truncate">{task.title}</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="details" className="w-full flex-1 flex flex-col overflow-hidden">
+        <Tabs defaultValue="details" className="w-full flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details" className="gap-2">
               <FileText className="h-4 w-4" />
@@ -469,31 +469,6 @@ export function TaskDetailModal({
           </TabsContent>
 
           <TabsContent value="notes" className="mt-4 flex-1 flex flex-col overflow-hidden">
-            {/* Comment input */}
-            <div className="flex gap-2 mb-3">
-              <Textarea
-                placeholder="Add a note..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                disabled={isSubmittingComment}
-                rows={2}
-                className="resize-none text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    handleSubmitComment();
-                  }
-                }}
-              />
-              <Button
-                size="sm"
-                onClick={handleSubmitComment}
-                disabled={!newComment.trim() || isSubmittingComment}
-                className="self-end"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-
             {/* Comments list */}
             <div className="flex-1 overflow-y-auto space-y-3">
               {isLoadingComments ? (
@@ -503,7 +478,7 @@ export function TaskDetailModal({
               ) : comments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <MessageSquare className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">No notes yet. Add one above.</p>
+                  <p className="text-sm text-muted-foreground">No notes yet. Add one below.</p>
                 </div>
               ) : (
                 comments.map((c) => (
@@ -538,6 +513,31 @@ export function TaskDetailModal({
                   </div>
                 ))
               )}
+            </div>
+
+            {/* Comment input */}
+            <div className="flex gap-2 pt-3 border-t mt-3">
+              <Textarea
+                placeholder="Add a note..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                disabled={isSubmittingComment}
+                rows={2}
+                className="resize-none text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleSubmitComment();
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={handleSubmitComment}
+                disabled={!newComment.trim() || isSubmittingComment}
+                className="self-end"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
           </TabsContent>
 
