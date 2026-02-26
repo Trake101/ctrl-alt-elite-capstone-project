@@ -3,14 +3,14 @@ import uuid
 from typing import List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from ..activity import log_activity
 from ..auth import get_current_user_id
 from ..db import get_db
-from ..models import Project, ProjectSwimLane, ProjectUserRole, Task, User
-from ..schemas import MyTaskResponse, TaskCreate, TaskResponse, TaskUpdate
+from ..models import ActivityLog, Comment, Project, ProjectSwimLane, ProjectUserRole, Task, User
+from ..schemas import MyTaskResponse, TaskActivityLogResponse, TaskCreate, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -238,7 +238,34 @@ async def get_project_tasks(
         Task.deleted_at.is_(None)
     ).order_by(Task.created_at).all()
 
-    return tasks
+    # Batch-fetch comment counts for all tasks
+    task_ids = [t.task_id for t in tasks]
+    comment_counts: dict = {}
+    if task_ids:
+        rows = db.query(
+            Comment.task_id, func.count(Comment.comment_id)
+        ).filter(
+            Comment.task_id.in_(task_ids),
+            Comment.deleted_at.is_(None),
+        ).group_by(Comment.task_id).all()
+        comment_counts = {row[0]: row[1] for row in rows}
+
+    return [
+        TaskResponse(
+            task_id=t.task_id,
+            project_id=t.project_id,
+            project_swim_lane_id=t.project_swim_lane_id,
+            title=t.title,
+            description=t.description,
+            assigned_to=t.assigned_to,
+            created_by=t.created_by,
+            comment_count=comment_counts.get(t.task_id, 0),
+            created_at=t.created_at,
+            updated_at=t.updated_at,
+            deleted_at=t.deleted_at,
+        )
+        for t in tasks
+    ]
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
@@ -398,4 +425,62 @@ async def update_task(
     db.refresh(task)
 
     return task
+
+
+@router.get("/{task_id}/activity", response_model=List[TaskActivityLogResponse])
+async def get_task_activity(
+    task_id: uuid.UUID,
+    clerk_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get activity history for a single task."""
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    task = db.query(Task).filter(Task.task_id == task_id, Task.deleted_at.is_(None)).first()
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found.")
+
+    # Verify user has access to the project (owner or member)
+    member_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id, ProjectUserRole.deleted_at.is_(None),
+    )
+    project = db.query(Project).filter(
+        Project.project_id == task.project_id,
+        or_(Project.owner_id == user.id, Project.project_id.in_(member_ids)),
+        Project.deleted_at.is_(None),
+    ).first()
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found or you don't have access.")
+
+    rows = (
+        db.query(ActivityLog, User)
+        .outerjoin(User, ActivityLog.action_by == User.id)
+        .filter(
+            or_(
+                # Direct task activity
+                (ActivityLog.object_type == "task") & (ActivityLog.object_id == task_id),
+                # Comment activity on this task
+                (ActivityLog.object_type == "comment")
+                & (ActivityLog.extra_data["task_id"].as_string() == str(task_id)),
+            )
+        )
+        .order_by(ActivityLog.created_at.desc())
+        .all()
+    )
+
+    return [
+        TaskActivityLogResponse(
+            activity_log_id=log.activity_log_id,
+            action=log.action,
+            description=log.description,
+            action_by=log.action_by,
+            actor_email=actor.email if actor else None,
+            actor_first_name=actor.first_name if actor else None,
+            actor_last_name=actor.last_name if actor else None,
+            created_at=log.created_at,
+        )
+        for log, actor in rows
+    ]
 

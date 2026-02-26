@@ -153,6 +153,7 @@ class TaskResponse(BaseModel):
     description: Optional[str] = None
     assigned_to: Optional[uuid.UUID] = None
     created_by: uuid.UUID
+    comment_count: int = 0
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None
@@ -300,3 +301,15 @@ class ActivityLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TaskActivityLogResponse(BaseModel):
+    """Activity log entry with actor info for task history."""
+    activity_log_id: uuid.UUID
+    action: str
+    description: str
+    action_by: Optional[uuid.UUID] = None
+    actor_email: Optional[str] = None
+    actor_first_name: Optional[str] = None
+    actor_last_name: Optional[str] = None
+    created_at: datetime

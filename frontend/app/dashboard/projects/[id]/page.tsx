@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 import Image from 'next/image';
 import { Navbar } from '@/components/ui/navbar';
 import { UserSync } from '../../user-sync';
-import { ArrowLeft, Loader2, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageSquare, Plus, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ProjectSettingsModal } from './project-settings-modal';
@@ -41,6 +41,7 @@ interface Task {
   description: string | null;
   assigned_to: string | null;
   created_by: string;
+  comment_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -320,6 +321,12 @@ export default function ProjectPage() {
                           </div>
                         )}
                       </div>
+                      {task.comment_count > 0 && (
+                        <div className="flex items-center gap-1 mt-1.5 text-muted-foreground">
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          <span className="text-xs">{task.comment_count}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -52,6 +52,17 @@ interface CommentData {
   creator_last_name: string | null;
 }
 
+interface ActivityLogData {
+  activity_log_id: string;
+  action: string;
+  description: string;
+  action_by: string | null;
+  actor_email: string | null;
+  actor_first_name: string | null;
+  actor_last_name: string | null;
+  created_at: string;
+}
+
 function formatTimeAgo(dateString: string): string {
   const now = new Date();
   const date = new Date(dateString);
@@ -97,6 +108,10 @@ export function TaskDetailModal({
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
+  // Activity log state
+  const [activityLogs, setActivityLogs] = useState<ActivityLogData[]>([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+
   const fetchComments = useCallback(async (taskId: string) => {
     setIsLoadingComments(true);
     try {
@@ -115,6 +130,24 @@ export function TaskDetailModal({
     }
   }, [getToken]);
 
+  const fetchActivity = useCallback(async (taskId: string) => {
+    setIsLoadingActivity(true);
+    try {
+      const token = await getToken({ skipCache: true });
+      if (!token) return;
+      const res = await fetch(`/api/tasks/${taskId}/activity`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setActivityLogs(await res.json());
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setIsLoadingActivity(false);
+    }
+  }, [getToken]);
+
   // Reset form when task changes
   useEffect(() => {
     if (task) {
@@ -126,10 +159,12 @@ export function TaskDetailModal({
       setError(null);
       setIsEditing(false);
       fetchComments(task.task_id);
+      fetchActivity(task.task_id);
     } else {
       setComments([]);
+      setActivityLogs([]);
     }
-  }, [task, fetchComments]);
+  }, [task, fetchComments, fetchActivity]);
 
   // Track changes
   useEffect(() => {
@@ -313,7 +348,7 @@ export function TaskDetailModal({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="details" className="mt-4 flex-1 overflow-y-auto">
+          <TabsContent value="details" className="mt-4 flex-1 overflow-y-auto min-h-0">
             {isEditing ? (
               // Edit Mode
               <div className="space-y-4">
@@ -541,17 +576,46 @@ export function TaskDetailModal({
             </div>
           </TabsContent>
 
-          <TabsContent value="history" className="mt-4 flex-1 overflow-y-auto">
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <History className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <h3 className="font-medium text-lg mb-2">History</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                View the complete history of changes made to this task.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Coming soon
-              </p>
-            </div>
+          <TabsContent value="history" className="mt-4 flex-1 overflow-y-auto min-h-0">
+            {isLoadingActivity ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : activityLogs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <History className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                <p className="text-sm text-muted-foreground">No activity yet.</p>
+              </div>
+            ) : (
+              <div className="relative pl-6">
+                {/* Timeline line */}
+                <div className="absolute left-[11px] top-2 bottom-2 w-px bg-border" />
+                <div className="space-y-4">
+                  {activityLogs.map((log) => {
+                    const actorName = log.actor_first_name && log.actor_last_name
+                      ? `${log.actor_first_name} ${log.actor_last_name}`
+                      : log.actor_email || 'Unknown';
+                    return (
+                      <div key={log.activity_log_id} className="relative flex gap-3">
+                        {/* Timeline dot */}
+                        <div className="absolute -left-6 top-1.5 h-2 w-2 rounded-full bg-muted-foreground/40" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">
+                            <span className="font-medium">{actorName}</span>
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {log.description}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {formatTimeAgo(log.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
