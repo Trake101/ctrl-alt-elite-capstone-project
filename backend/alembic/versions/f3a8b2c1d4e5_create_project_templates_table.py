@@ -19,23 +19,26 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        'project_templates',
-        sa.Column('template_id', postgresql.UUID(as_uuid=True), nullable=False, server_default=sa.text('gen_random_uuid()')),
-        sa.Column('name', sa.String(length=255), nullable=False),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('owner_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('statuses', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column('roles', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column('tasks', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('template_id')
-    )
-    op.create_index(op.f('ix_project_templates_template_id'), 'project_templates', ['template_id'], unique=False)
-    op.create_index(op.f('ix_project_templates_owner_id'), 'project_templates', ['owner_id'], unique=False)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'project_templates' not in inspector.get_table_names():
+        op.create_table(
+            'project_templates',
+            sa.Column('template_id', postgresql.UUID(as_uuid=True), nullable=False, server_default=sa.text('gen_random_uuid()')),
+            sa.Column('name', sa.String(length=255), nullable=False),
+            sa.Column('description', sa.Text(), nullable=True),
+            sa.Column('owner_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('statuses', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+            sa.Column('roles', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+            sa.Column('tasks', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+            sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('template_id')
+        )
+        op.create_index(op.f('ix_project_templates_template_id'), 'project_templates', ['template_id'], unique=False)
+        op.create_index(op.f('ix_project_templates_owner_id'), 'project_templates', ['owner_id'], unique=False)
 
 
 def downgrade() -> None:

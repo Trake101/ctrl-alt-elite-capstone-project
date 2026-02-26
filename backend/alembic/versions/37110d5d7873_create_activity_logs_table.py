@@ -20,18 +20,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        'activity_logs',
-        sa.Column('activity_log_id', UUID(as_uuid=True), primary_key=True, index=True),
-        sa.Column('object_type', sa.String(255), nullable=False),
-        sa.Column('object_id', UUID(as_uuid=True), nullable=False, index=True),
-        sa.Column('action', sa.String(255), nullable=False),
-        sa.Column('description', sa.Text(), nullable=False),
-        sa.Column('metadata', JSONB, nullable=True),
-        sa.Column('action_by', UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'activity_logs' not in inspector.get_table_names():
+        op.create_table(
+            'activity_logs',
+            sa.Column('activity_log_id', UUID(as_uuid=True), primary_key=True, index=True),
+            sa.Column('object_type', sa.String(255), nullable=False),
+            sa.Column('object_id', UUID(as_uuid=True), nullable=False, index=True),
+            sa.Column('action', sa.String(255), nullable=False),
+            sa.Column('description', sa.Text(), nullable=False),
+            sa.Column('metadata', JSONB, nullable=True),
+            sa.Column('action_by', UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        )
 
 
 def downgrade() -> None:

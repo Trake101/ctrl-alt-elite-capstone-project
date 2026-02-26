@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from .db import Base, engine, get_db
+from .db import get_db
 from .routers import activity_logs, dashboard, projects, project_user_roles, swim_lanes, tasks, templates, users
 
 # Load environment variables from .env file
@@ -15,11 +15,6 @@ env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 app = FastAPI(redirect_slashes=False)
-
-@app.on_event("startup")
-def on_startup():
-    """Create database tables on application startup."""
-    Base.metadata.create_all(bind=engine)
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
