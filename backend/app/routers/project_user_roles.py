@@ -3,6 +3,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..activity import log_activity
@@ -37,10 +38,17 @@ def verify_project_ownership(
             detail="User not found. Please ensure your user is synced to the database."
         )
 
-    # Get the project and verify ownership
+    # Get the project and verify ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == project_id,
-        Project.owner_id == user.id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
         Project.deleted_at.is_(None)
     ).first()
 

@@ -35,11 +35,18 @@ def verify_project_and_swim_lane_access(
             detail="User not found. Please ensure your user is synced to the database."
         )
 
-    # Verify project ownership
+    # Verify project ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == project_id,
-        Project.owner_id == user.id,
-        Project.deleted_at.is_(None)  # Only non-deleted projects
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
+        Project.deleted_at.is_(None)
     ).first()
 
     if not project:
@@ -219,10 +226,17 @@ async def get_project_tasks(
             detail="User not found. Please ensure your user is synced to the database."
         )
 
-    # Verify project ownership
+    # Verify project ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == project_id,
-        Project.owner_id == user.id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
         Project.deleted_at.is_(None)
     ).first()
 
@@ -301,10 +315,17 @@ async def update_task(
             detail="Task not found."
         )
 
-    # Verify project ownership
+    # Verify project ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == task.project_id,
-        Project.owner_id == user.id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
         Project.deleted_at.is_(None)
     ).first()
 
