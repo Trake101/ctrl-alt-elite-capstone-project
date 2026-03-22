@@ -4,11 +4,13 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from ..activity import log_activity
 from ..auth import get_current_user_id
 from ..db import get_db
-from ..models import Project, ProjectSwimLane, User
+from ..models import Project, ProjectSwimLane, ProjectUserRole, User
 from ..schemas import SwimLaneCreate, SwimLaneResponse, SwimLaneUpdate
 
 router = APIRouter(prefix="/api/swim-lanes", tags=["swim-lanes"])
@@ -32,11 +34,18 @@ def verify_project_ownership(
             detail="User not found. Please ensure your user is synced to the database."
         )
 
-    # Get the project and verify ownership
+    # Get the project and verify ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == project_id,
-        Project.owner_id == user.id,
-        Project.deleted_at.is_(None)  # Only non-deleted projects
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
+        Project.deleted_at.is_(None)
     ).first()
 
     if not project:
@@ -82,8 +91,9 @@ async def create_swim_lane(
     Requires the user to own the project.
     Requires a valid Clerk session token in the Authorization header.
     """
-    # Verify project ownership
-    project = verify_project_ownership(swim_lane_data.project_id, clerk_user_id, db)
+    # Find user and verify project ownership
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    verify_project_ownership(swim_lane_data.project_id, clerk_user_id, db)
 
     # Create the new swim lane
     new_swim_lane = ProjectSwimLane(
@@ -93,6 +103,13 @@ async def create_swim_lane(
     )
 
     db.add(new_swim_lane)
+    db.flush()
+    log_activity(
+        db, "swim_lane", new_swim_lane.swim_lane_id, "created",
+        f"Created swim lane '{new_swim_lane.name}'",
+        user.id,
+        {"project_id": str(swim_lane_data.project_id)},
+    )
     db.commit()
     db.refresh(new_swim_lane)
 
@@ -132,10 +149,17 @@ async def update_swim_lane(
             detail="Swim lane not found."
         )
 
-    # Verify project ownership
+    # Verify project ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == swim_lane.project_id,
-        Project.owner_id == user.id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
         Project.deleted_at.is_(None)
     ).first()
 
@@ -151,6 +175,12 @@ async def update_swim_lane(
     if swim_lane_data.order is not None:
         swim_lane.order = swim_lane_data.order
 
+    log_activity(
+        db, "swim_lane", swim_lane.swim_lane_id, "updated",
+        f"Updated swim lane '{swim_lane.name}'",
+        user.id,
+        {"project_id": str(swim_lane.project_id)},
+    )
     db.commit()
     db.refresh(swim_lane)
 
@@ -189,10 +219,17 @@ async def delete_swim_lane(
             detail="Swim lane not found."
         )
 
-    # Verify project ownership
+    # Verify project ownership or membership
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None)
+    )
     project = db.query(Project).filter(
         Project.project_id == swim_lane.project_id,
-        Project.owner_id == user.id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids)
+        ),
         Project.deleted_at.is_(None)
     ).first()
 
@@ -204,6 +241,12 @@ async def delete_swim_lane(
 
     # Soft delete by setting deleted_at
     swim_lane.deleted_at = datetime.now(timezone.utc)
+    log_activity(
+        db, "swim_lane", swim_lane.swim_lane_id, "deleted",
+        f"Deleted swim lane '{swim_lane.name}'",
+        user.id,
+        {"project_id": str(swim_lane.project_id)},
+    )
     db.commit()
 
     return None

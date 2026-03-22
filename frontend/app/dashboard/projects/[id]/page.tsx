@@ -6,11 +6,14 @@ import { useAuth } from '@clerk/nextjs';
 import Image from 'next/image';
 import { Navbar } from '@/components/ui/navbar';
 import { UserSync } from '../../user-sync';
-import { Loader2, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageSquare, Plus, Settings } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ProjectSettingsModal } from './project-settings-modal';
 import { CreateTaskModal } from './create-task-modal';
 import { TaskDetailModal } from './task-detail-modal';
+import { CreateTemplateModal } from './create-template-modal';
+import { SaveTemplateModal } from './save-template-modal';
 import { getGravatarUrl } from '@/lib/gravatar';
 
 interface Project {
@@ -38,6 +41,7 @@ interface Task {
   description: string | null;
   assigned_to: string | null;
   created_by: string;
+  comment_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +70,8 @@ export default function ProjectPage() {
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [defaultSwimLaneId, setDefaultSwimLaneId] = useState<string | undefined>(undefined);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -255,6 +261,13 @@ export default function ProjectPage() {
       <UserSync />
       <Navbar />
       <main className="container mx-auto px-6 py-6">
+        <Link
+          href="/dashboard"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
           <div className="flex gap-2">
@@ -308,6 +321,12 @@ export default function ProjectPage() {
                           </div>
                         )}
                       </div>
+                      {task.comment_count > 0 && (
+                        <div className="flex items-center gap-1 mt-1.5 text-muted-foreground">
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          <span className="text-xs">{task.comment_count}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -338,6 +357,8 @@ export default function ProjectPage() {
           setProject({ ...project, name: newName });
         }}
         onSwimLanesUpdate={refreshSwimLanes}
+        onCreateTemplate={() => setIsTemplateModalOpen(true)}
+        onSaveTemplate={() => setIsSaveTemplateModalOpen(true)}
       />
       <CreateTaskModal
         open={isCreateTaskOpen}
@@ -354,6 +375,18 @@ export default function ProjectPage() {
         swimLanes={swimLanes}
         users={users}
         onSuccess={refreshTasks}
+      />
+      <CreateTemplateModal
+        open={isTemplateModalOpen}
+        onOpenChange={setIsTemplateModalOpen}
+        projectId={project.project_id}
+        projectName={project.name}
+      />
+      <SaveTemplateModal
+        open={isSaveTemplateModalOpen}
+        onOpenChange={setIsSaveTemplateModalOpen}
+        projectId={project.project_id}
+        projectName={project.name}
       />
     </div>
   );

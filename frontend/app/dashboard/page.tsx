@@ -2,6 +2,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { UserSync } from './user-sync';
 import { Navbar } from '@/components/ui/navbar';
 import { CreateProjectButton } from './create-project-button';
+import { MyAssignedTasks } from './my-assigned-tasks';
 import { ProjectsList } from './projects-list';
 
 // Force dynamic rendering to avoid Clerk key requirement during build
@@ -15,6 +16,8 @@ export default async function DashboardPage() {
       <UserSync />
       <Navbar />
       <main className="container mx-auto px-6 py-6">
+        <MyAssignedTasks />
+
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-semibold text-foreground">My Projects</h1>
           <CreateProjectButton />

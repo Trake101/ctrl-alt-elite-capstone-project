@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, List
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 class UserCreate(BaseModel):
     """Schema for creating or updating a user."""
@@ -27,6 +27,17 @@ class UserResponse(BaseModel):
 class ProjectCreate(BaseModel):
     """Schema for creating a project."""
     name: str
+
+
+class ProjectCreateFromTemplate(BaseModel):
+    """Schema for creating a project from an existing project template."""
+    name: str
+    source_project_id: uuid.UUID
+    include_statuses: bool = True
+    include_roles: bool = True
+    include_users: bool = False
+    include_tasks: bool = False
+    keep_assignees: bool = False
 
 
 class ProjectUpdate(BaseModel):
@@ -142,9 +153,163 @@ class TaskResponse(BaseModel):
     description: Optional[str] = None
     assigned_to: Optional[uuid.UUID] = None
     created_by: uuid.UUID
+    comment_count: int = 0
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class TemplateStatusSchema(BaseModel):
+    """Schema for a status in a template."""
+    name: str
+    order: int
+
+
+class TemplateTaskSchema(BaseModel):
+    """Schema for a task in a template."""
+    title: str
+    description: Optional[str] = None
+    status_order: int  # Maps to the status by order
+    assigned_to: Optional[uuid.UUID] = None
+
+
+class TemplateUserSchema(BaseModel):
+    """Schema for a user assignment in a template."""
+    user_id: uuid.UUID
+    role: str
+
+
+class TemplateCreateFromProject(BaseModel):
+    """Schema for creating a template from an existing project."""
+    name: str
+    description: Optional[str] = None
+    source_project_id: uuid.UUID
+    include_statuses: bool = True
+    include_roles: bool = True
+    include_users: bool = False
+    include_tasks: bool = False
+    keep_assignees: bool = False
+
+
+class TemplateCreate(BaseModel):
+    """Schema for creating a template directly."""
+    name: str
+    description: Optional[str] = None
+    statuses: Optional[List[TemplateStatusSchema]] = None
+    roles: Optional[List[str]] = None
+    tasks: Optional[List[TemplateTaskSchema]] = None
+
+
+class TemplateResponse(BaseModel):
+    """Schema for template response data."""
+    template_id: uuid.UUID
+    name: str
+    description: Optional[str] = None
+    owner_id: uuid.UUID
+    statuses: Optional[List[TemplateStatusSchema]] = None
+    roles: Optional[List[str]] = None
+    users: Optional[List[TemplateUserSchema]] = None
+    tasks: Optional[List[TemplateTaskSchema]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectCreateFromSavedTemplate(BaseModel):
+    """Schema for creating a project from a saved template."""
+    name: str
+    template_id: uuid.UUID
+    keep_assignees: bool = False
+
+
+class SwimLaneTaskCount(BaseModel):
+    """Task count for a single swim lane."""
+    name: str
+    order: int
+    count: int
+
+
+class DashboardMember(BaseModel):
+    """Lightweight user representation for dashboard avatar stacks."""
+    user_id: uuid.UUID
+    email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class ProjectStats(BaseModel):
+    """Per-project stats for the dashboard."""
+    project_id: uuid.UUID
+    task_count: int
+    member_count: int
+    members: List[DashboardMember]
+    task_breakdown: List[SwimLaneTaskCount] = []
+
+
+class DashboardStatsResponse(BaseModel):
+    """Aggregated dashboard stats for all user projects."""
+    projects: List[ProjectStats]
+
+
+class MyTaskResponse(BaseModel):
+    """Task with project name for cross-project assigned tasks view."""
+    task_id: uuid.UUID
+    project_id: uuid.UUID
+    project_name: str
+    project_swim_lane_id: uuid.UUID
+    title: str
+    description: Optional[str] = None
+    assigned_to: Optional[uuid.UUID] = None
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class CommentCreate(BaseModel):
+    """Schema for creating a comment."""
+    comment: str
+
+
+class CommentResponse(BaseModel):
+    """Schema for comment response data with creator info."""
+    comment_id: uuid.UUID
+    task_id: uuid.UUID
+    created_by: uuid.UUID
+    comment: str
+    created_at: datetime
+    updated_at: datetime
+    creator_email: str
+    creator_first_name: Optional[str] = None
+    creator_last_name: Optional[str] = None
+
+
+class ActivityLogResponse(BaseModel):
+    """Schema for activity log response data."""
+    activity_log_id: uuid.UUID
+    object_type: str
+    object_id: uuid.UUID
+    action: str
+    description: str
+    metadata: Optional[dict] = Field(default=None, validation_alias="extra_data")
+    action_by: Optional[uuid.UUID] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TaskActivityLogResponse(BaseModel):
+    """Activity log entry with actor info for task history."""
+    activity_log_id: uuid.UUID
+    action: str
+    description: str
+    action_by: Optional[uuid.UUID] = None
+    actor_email: Optional[str] = None
+    actor_first_name: Optional[str] = None
+    actor_last_name: Optional[str] = None
+    created_at: datetime

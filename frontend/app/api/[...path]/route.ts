@@ -41,16 +41,17 @@ export async function DELETE(
 }
 
 async function proxyRequest(request: NextRequest, pathSegments: string[]) {
-  // Get backend URL from environment variable (read at runtime)
+  // Get backend URL — prefer private BACKEND_URL (Railway internal networking)
+  // over public NEXT_PUBLIC_BACKEND_URL to avoid Fastly CDN routing loops
   const backendUrl =
-    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
     process.env.BACKEND_URL?.trim() ||
+    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
     (process.env.NODE_ENV === 'production' ? null : 'http://c455_backend:8000');
 
   if (!backendUrl) {
     console.error(
-      '[API Proxy] ERROR: NEXT_PUBLIC_BACKEND_URL is not set. ' +
-        'Please set NEXT_PUBLIC_BACKEND_URL in Railway to your backend service URL.'
+      '[API Proxy] ERROR: BACKEND_URL is not set. ' +
+        'Please set BACKEND_URL in Railway to your backend internal URL (e.g. http://backend.railway.internal:8000).'
     );
     return NextResponse.json(
       { error: 'Backend URL not configured' },
