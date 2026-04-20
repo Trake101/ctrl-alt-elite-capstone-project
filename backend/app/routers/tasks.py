@@ -1,5 +1,6 @@
 """Task-related API endpoints."""
 import uuid
+from datetime import datetime, timezone
 from typing import List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -446,6 +447,64 @@ async def update_task(
     db.refresh(task)
 
     return task
+
+
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_task(
+    task_id: uuid.UUID,
+    clerk_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """
+    Soft-delete a task. Requires access to the project that owns the task.
+    """
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please ensure your user is synced to the database.",
+        )
+
+    task = db.query(Task).filter(
+        Task.task_id == task_id,
+        Task.deleted_at.is_(None),
+    ).first()
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found.",
+        )
+
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None),
+    )
+    project = db.query(Project).filter(
+        Project.project_id == task.project_id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids),
+        ),
+        Project.deleted_at.is_(None),
+    ).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found or you don't have access to it.",
+        )
+
+    task.deleted_at = datetime.now(timezone.utc)
+    log_activity(
+        db,
+        "task",
+        task.task_id,
+        "deleted",
+        f"Deleted task '{task.title}'",
+        user.id,
+        {"project_id": str(task.project_id)},
+    )
+    db.commit()
+    return None
 
 
 @router.get("/{task_id}/activity", response_model=List[TaskActivityLogResponse])

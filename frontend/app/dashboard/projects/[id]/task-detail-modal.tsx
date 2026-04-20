@@ -99,6 +99,7 @@ export function TaskDetailModal({
   const [selectedSwimLaneId, setSelectedSwimLaneId] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -324,6 +325,38 @@ export function TaskDetailModal({
     return new Date(dateString).toLocaleString();
   };
 
+  const handleRemoveTask = async () => {
+    if (!task) return;
+    if (!window.confirm(`Remove "${task.title}"? This cannot be undone.`)) return;
+
+    setIsRemoving(true);
+    setError(null);
+    try {
+      const token = await getToken({ skipCache: true });
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      const response = await fetch(`/api/tasks/${task.task_id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          typeof errorData.detail === 'string'
+            ? errorData.detail
+            : 'Failed to remove task'
+        );
+      }
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
   if (!task) return null;
 
   return (
@@ -447,7 +480,22 @@ export function TaskDetailModal({
             ) : (
               // View Mode
               <div className="space-y-6">
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-red-500 text-white border-red-500 hover:bg-red-600 hover:border-red-600"
+                    onClick={() => void handleRemoveTask()}
+                    disabled={isRemoving || isLoading}
+                  >
+                    {isRemoving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    Remove
+                  </Button>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -458,6 +506,10 @@ export function TaskDetailModal({
                     Edit
                   </Button>
                 </div>
+
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )}
 
                 <div className="space-y-4">
                   <div>
