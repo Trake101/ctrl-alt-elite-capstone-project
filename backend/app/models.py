@@ -94,6 +94,7 @@ class Task(Base):
         index=True,
     )
     title = Column(String(255), nullable=False)
+    position = Column(Integer, nullable=False, default=0)
     description = Column(Text, nullable=True)
     assigned_to = Column(
         UUID(as_uuid=True),
