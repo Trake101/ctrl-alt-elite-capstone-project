@@ -11,7 +11,14 @@ from ..activity import log_activity
 from ..auth import get_current_user_id
 from ..db import get_db
 from ..models import ActivityLog, Comment, Project, ProjectSwimLane, ProjectUserRole, Task, User
-from ..schemas import MyTaskResponse, TaskActivityLogResponse, TaskCreate, TaskResponse, TaskUpdate
+from ..schemas import (
+    MyTaskResponse,
+    TaskActivityLogResponse,
+    TaskCreate,
+    TaskReorderRequest,
+    TaskResponse,
+    TaskUpdate,
+)
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -129,10 +136,15 @@ async def create_task(
             )
 
     # Create the new task
+    lane_task_count = db.query(Task).filter(
+        Task.project_swim_lane_id == task_data.project_swim_lane_id,
+        Task.deleted_at.is_(None)
+    ).count()
     new_task = Task(
         project_id=task_data.project_id,
         project_swim_lane_id=task_data.project_swim_lane_id,
         title=task_data.title.strip(),
+        position=task_data.position if task_data.position is not None else lane_task_count,
         description=task_data.description,
         assigned_to=task_data.assigned_to,
         created_by=user.id
@@ -197,6 +209,7 @@ async def get_my_assigned_tasks(
             project_name=project_name,
             project_swim_lane_id=task.project_swim_lane_id,
             title=task.title,
+            position=task.position,
             description=task.description,
             assigned_to=task.assigned_to,
             created_by=task.created_by,
@@ -251,7 +264,7 @@ async def get_project_tasks(
     tasks = db.query(Task).filter(
         Task.project_id == project_id,
         Task.deleted_at.is_(None)
-    ).order_by(Task.created_at).all()
+    ).order_by(Task.project_swim_lane_id, Task.position, Task.created_at).all()
 
     # Batch-fetch comment counts for all tasks
     task_ids = [t.task_id for t in tasks]
@@ -271,6 +284,7 @@ async def get_project_tasks(
             project_id=t.project_id,
             project_swim_lane_id=t.project_swim_lane_id,
             title=t.title,
+            position=t.position,
             description=t.description,
             assigned_to=t.assigned_to,
             created_by=t.created_by,
@@ -341,6 +355,7 @@ async def update_task(
         "title": task.title,
         "description": task.description,
         "project_swim_lane_id": str(task.project_swim_lane_id),
+        "position": task.position,
         "assigned_to": str(task.assigned_to) if task.assigned_to else None,
     }
 
@@ -401,12 +416,15 @@ async def update_task(
 
     if task_data.description is not None:
         task.description = task_data.description
+    if task_data.position is not None:
+        task.position = task_data.position
 
     # Build detailed change tracking
     new_values = {
         "title": task.title,
         "description": task.description,
         "project_swim_lane_id": str(task.project_swim_lane_id),
+        "position": task.position,
         "assigned_to": str(task.assigned_to) if task.assigned_to else None,
     }
 
@@ -424,6 +442,8 @@ async def update_task(
             change_parts.append("description")
         elif field == "project_swim_lane_id":
             change_parts.append(f"status from '{old_swim_lane_name}' to '{new_swim_lane_name}'")
+        elif field == "position":
+            change_parts.append(f"position from {diff['old']} to {diff['new']}")
         elif field == "assigned_to":
             if diff["old"] is None:
                 change_parts.append(f"assigned to {new_assignee_name}")
@@ -447,6 +467,94 @@ async def update_task(
     db.refresh(task)
 
     return task
+
+
+@router.patch("/project/{project_id}/reorder", response_model=List[TaskResponse])
+async def reorder_project_tasks(
+    project_id: uuid.UUID,
+    reorder_data: TaskReorderRequest,
+    clerk_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Bulk update task lane and position for a project board."""
+    user = db.query(User).filter(User.clerk_id == clerk_user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please ensure your user is synced to the database."
+        )
+
+    member_project_ids = db.query(ProjectUserRole.project_id).filter(
+        ProjectUserRole.user_id == user.id,
+        ProjectUserRole.deleted_at.is_(None),
+    )
+    project = db.query(Project).filter(
+        Project.project_id == project_id,
+        or_(
+            Project.owner_id == user.id,
+            Project.project_id.in_(member_project_ids),
+        ),
+        Project.deleted_at.is_(None),
+    ).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found or you don't have access to it."
+        )
+
+    if not reorder_data.tasks:
+        return []
+
+    lane_ids = {item.project_swim_lane_id for item in reorder_data.tasks}
+    lane_count = db.query(ProjectSwimLane).filter(
+        ProjectSwimLane.project_id == project_id,
+        ProjectSwimLane.swim_lane_id.in_(lane_ids),
+        ProjectSwimLane.deleted_at.is_(None),
+    ).count()
+    if lane_count != len(lane_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more swim lanes are invalid for this project.",
+        )
+
+    task_ids = [item.task_id for item in reorder_data.tasks]
+    tasks = db.query(Task).filter(
+        Task.project_id == project_id,
+        Task.task_id.in_(task_ids),
+        Task.deleted_at.is_(None),
+    ).all()
+    task_by_id = {task.task_id: task for task in tasks}
+    if len(task_by_id) != len(task_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more tasks are invalid for this project.",
+        )
+
+    updated_tasks: List[Task] = []
+    for item in reorder_data.tasks:
+        task = task_by_id[item.task_id]
+        task.project_swim_lane_id = item.project_swim_lane_id
+        task.position = item.position
+        updated_tasks.append(task)
+
+    db.flush()
+    for task in updated_tasks:
+        log_activity(
+            db,
+            "task",
+            task.task_id,
+            "updated",
+            f"Reordered task '{task.title}'",
+            user.id,
+            {
+                "project_id": str(project_id),
+                "swim_lane_id": str(task.project_swim_lane_id),
+                "position": task.position,
+            },
+        )
+    db.commit()
+
+    return updated_tasks
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)

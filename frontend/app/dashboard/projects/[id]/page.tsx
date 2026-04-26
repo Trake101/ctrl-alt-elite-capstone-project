@@ -38,6 +38,7 @@ interface Task {
   project_id: string;
   project_swim_lane_id: string;
   title: string;
+  position: number;
   description: string | null;
   assigned_to: string | null;
   created_by: string;
@@ -72,6 +73,7 @@ export default function ProjectPage() {
   const [defaultSwimLaneId, setDefaultSwimLaneId] = useState<string | undefined>(undefined);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -235,7 +237,9 @@ export default function ProjectPage() {
 
   // Helper function to get tasks for a specific swim lane
   const getTasksForLane = (swimLaneId: string) => {
-    return tasks.filter(task => task.project_swim_lane_id === swimLaneId);
+    return tasks
+      .filter(task => task.project_swim_lane_id === swimLaneId)
+      .sort((a, b) => a.position - b.position);
   };
 
   // Helper function to get user by ID
@@ -254,6 +258,106 @@ export default function ProjectPage() {
   const openCreateTaskModal = (swimLaneId?: string) => {
     setDefaultSwimLaneId(swimLaneId);
     setIsCreateTaskOpen(true);
+  };
+
+  const saveTaskOrder = async (updatedTasks: Task[]) => {
+    const token = await getToken({ skipCache: true });
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    const response = await fetch(`/api/tasks/project/${projectId}/reorder`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tasks: updatedTasks.map((task) => ({
+          task_id: task.task_id,
+          project_swim_lane_id: task.project_swim_lane_id,
+          position: task.position,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to save task order');
+    }
+  };
+
+  const handleTaskDrop = async (targetLaneId: string, targetIndex?: number) => {
+    if (!draggedTaskId) return;
+
+    const currentTasks = [...tasks];
+    const draggedTask = currentTasks.find((task) => task.task_id === draggedTaskId);
+    if (!draggedTask) return;
+
+    const sourceLaneId = draggedTask.project_swim_lane_id;
+    const fullSourceLaneTasks = currentTasks
+      .filter((task) => task.project_swim_lane_id === sourceLaneId)
+      .sort((a, b) => a.position - b.position);
+    const sourceIndex = fullSourceLaneTasks.findIndex((task) => task.task_id === draggedTaskId);
+    const sourceLaneTasks = currentTasks
+      .filter((task) => task.project_swim_lane_id === sourceLaneId && task.task_id !== draggedTaskId)
+      .sort((a, b) => a.position - b.position);
+    const destinationLaneTasks = currentTasks
+      .filter((task) => task.project_swim_lane_id === targetLaneId && task.task_id !== draggedTaskId)
+      .sort((a, b) => a.position - b.position);
+
+    const adjustedTargetIndex = (
+      sourceLaneId === targetLaneId &&
+      targetIndex !== undefined &&
+      sourceIndex >= 0 &&
+      targetIndex > sourceIndex
+    ) ? targetIndex - 1 : targetIndex;
+    const insertIndex = Math.max(
+      0,
+      Math.min(adjustedTargetIndex ?? destinationLaneTasks.length, destinationLaneTasks.length)
+    );
+    destinationLaneTasks.splice(insertIndex, 0, {
+      ...draggedTask,
+      project_swim_lane_id: targetLaneId,
+    });
+
+    const updates = new Map<string, Task>();
+    // Ensure the dragged task is updated when moving lanes, even if it lands
+    // at the same numeric index (which can otherwise result in no persisted change).
+    const draggedOldPosition = sourceIndex >= 0 ? sourceIndex : draggedTask.position;
+    if (sourceLaneId !== targetLaneId || draggedOldPosition !== insertIndex) {
+      updates.set(draggedTask.task_id, {
+        ...draggedTask,
+        project_swim_lane_id: targetLaneId,
+        position: insertIndex,
+      });
+    }
+    sourceLaneTasks.forEach((task, index) => {
+      if (task.position !== index) {
+        updates.set(task.task_id, { ...task, position: index });
+      }
+    });
+    destinationLaneTasks.forEach((task, index) => {
+      if (task.position !== index || task.project_swim_lane_id !== targetLaneId) {
+        updates.set(task.task_id, { ...task, project_swim_lane_id: targetLaneId, position: index });
+      }
+    });
+
+    if (updates.size === 0) {
+      setDraggedTaskId(null);
+      return;
+    }
+
+    const nextTasks = currentTasks.map((task) => updates.get(task.task_id) ?? task);
+    setTasks(nextTasks);
+    setDraggedTaskId(null);
+
+    try {
+      await saveTaskOrder(Array.from(updates.values()));
+    } catch (err) {
+      setTasks(currentTasks);
+      setError(err instanceof Error ? err.message : 'Failed to save task order');
+    }
   };
 
   return (
@@ -290,20 +394,45 @@ export default function ProjectPage() {
           </div>
         </div>
         <div className="flex gap-[20px] overflow-x-auto pb-4">
-          {swimLanes.map((lane) => (
-            <div
-              key={lane.swim_lane_id}
-              className="card border-2 bg-gray-100 shadow-lg border-gray-400 rounded-lg w-[300px] min-h-[750px] p-3 flex-shrink-0"
-            >
-              <p className="font-bold text-xl mb-3">{lane.name}</p>
-              <div className="space-y-3">
-                {getTasksForLane(lane.swim_lane_id).map((task) => {
+          {swimLanes.map((lane) => {
+            const laneTasks = getTasksForLane(lane.swim_lane_id);
+            return (
+              <div
+                key={lane.swim_lane_id}
+                className="card border-2 bg-gray-100 shadow-lg border-gray-400 rounded-lg w-[300px] min-h-[750px] p-3 flex-shrink-0"
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void handleTaskDrop(lane.swim_lane_id);
+                }}
+              >
+                <p className="font-bold text-xl mb-3">{lane.name}</p>
+                <div className="space-y-3">
+                  {laneTasks.map((task, taskIndex) => {
                   const assignee = getUserById(task.assigned_to);
                   return (
                     <div
                       key={task.task_id}
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = 'move';
+                        setDraggedTaskId(task.task_id);
+                      }}
+                      onDragEnd={() => setDraggedTaskId(null)}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void handleTaskDrop(lane.swim_lane_id, taskIndex);
+                      }}
                       onClick={() => handleTaskClick(task)}
-                      className="group bg-background rounded-lg border border-border p-3 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 cursor-pointer"
+                      className={`group bg-background rounded-lg border border-border p-3 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 cursor-pointer ${draggedTaskId === task.task_id ? 'opacity-50' : ''}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-medium text-sm text-foreground leading-snug flex-1">{task.title}</p>
@@ -330,7 +459,7 @@ export default function ProjectPage() {
                     </div>
                   );
                 })}
-                {getTasksForLane(lane.swim_lane_id).length === 0 && (
+                {laneTasks.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-4">No tasks</p>
                 )}
                 <button
@@ -341,8 +470,9 @@ export default function ProjectPage() {
                   Add Task
                 </button>
               </div>
-            </div>
-          ))}
+              </div>
+            );
+          })}
           {swimLanes.length === 0 && (
             <p className="text-muted-foreground">No swim lanes found for this project.</p>
           )}

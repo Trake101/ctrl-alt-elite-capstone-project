@@ -132,6 +132,7 @@ class TaskCreate(BaseModel):
     project_id: uuid.UUID
     project_swim_lane_id: uuid.UUID
     title: str
+    position: Optional[int] = Field(default=None, ge=0)
     description: Optional[str] = None
     assigned_to: Optional[uuid.UUID] = None
 
@@ -141,6 +142,7 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     project_swim_lane_id: Optional[uuid.UUID] = None
+    position: Optional[int] = Field(default=None, ge=0)
     assigned_to: Optional[uuid.UUID] = None
 
 
@@ -150,6 +152,7 @@ class TaskResponse(BaseModel):
     project_id: uuid.UUID
     project_swim_lane_id: uuid.UUID
     title: str
+    position: int
     description: Optional[str] = None
     assigned_to: Optional[uuid.UUID] = None
     created_by: uuid.UUID
@@ -160,6 +163,18 @@ class TaskResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TaskReorderItem(BaseModel):
+    """Schema for one task position update."""
+    task_id: uuid.UUID
+    project_swim_lane_id: uuid.UUID
+    position: int = Field(ge=0)
+
+
+class TaskReorderRequest(BaseModel):
+    """Schema for bulk task reordering."""
+    tasks: List[TaskReorderItem]
 
 
 class TemplateStatusSchema(BaseModel):
